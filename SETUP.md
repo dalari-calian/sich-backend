@@ -12,11 +12,14 @@
 
 ## Extensões do VS Code
 
-Instale as 3 extensões abaixo (pesquise pelo ID na aba de extensões):
+Instale as extensões abaixo (pesquise pelo ID na aba de extensões):
 
-- `vscjava.vscode-java-pack` — suporte a Java
-- `vmware.vscode-spring-boot` — suporte ao Spring Boot
-- `redhat.java` — language server Java
+- `vscjava.vscode-java-pack`
+- `vmware.vscode-spring-boot`
+- `redhat.java`
+- `vscjava.vscode-java-dependency`
+- `vscjava.vscode-java-test`
+- `vscjava.vscode-java-debug`
 
 ---
 
