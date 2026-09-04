@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: sich_user
       POSTGRES_PASSWORD: sich1234
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - sich_pgdata:/var/lib/postgresql/data
     healthcheck:
