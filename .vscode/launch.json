@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Sich Backend",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.sich.SichBackendApplication",
+      "projectName": "sich-backend",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "local"
+      }
+    },
+    {
+      "type": "java",
+      "name": "Sich Backend (debug com hot reload)",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.sich.SichBackendApplication",
+      "projectName": "sich-backend",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "local"
+      },
+      "vmArgs": "-Dspring.devtools.restart.enabled=true -XX:+ShowCodeDetailsInExceptionMessages"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: sich-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sich
+      POSTGRES_USER: sich_user
+      POSTGRES_PASSWORD: sich1234
+    ports:
+      - "5433:5432"
+    volumes:
+      - sich_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sich_user -d sich"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sich_pgdata:
