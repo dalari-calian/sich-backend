@@ -22,3 +22,6 @@ spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.Ph
 ```
 
 Sempre que criar uma nova entidade ou coluna, siga essa convenção sem perguntar.
+
+Sempre que criar alguma service com alguma lógica nova, escrever os testes dele para queo sistema esteja 100% coberto com testes. Os testes a nível de banco de dados
+ou componentes de interface, que não é o caso, não precisa implementar.
