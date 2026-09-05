@@ -28,7 +28,7 @@ public class UserEntity extends AbstractEntity {
     private String password;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "user_type", nullable = false)
+    @Column(name = "usertype", nullable = false)
     private UserType userType;
 
     @Column(nullable = false)
