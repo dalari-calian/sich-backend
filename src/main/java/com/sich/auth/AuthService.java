@@ -2,8 +2,6 @@ package com.sich.auth;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +26,6 @@ public class AuthService {
     private final CustomerService customerService;
     private final ProviderService providerService;
     private final AuthenticationManager authenticationManager;
-    private final UserDetailsService userDetailsService;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
 
@@ -36,13 +33,14 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         UserEntity user = userService.create(request.email(), request.password(), request.userType());
         createProfile(user, request);
-        return issueToken(user.getEmail());
+        return issueToken(user);
     }
 
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password()));
-        return issueToken(request.email());
+        UserEntity user = userService.findByEmail(request.email());
+        return issueToken(user);
     }
 
     private void createProfile(UserEntity user, RegisterRequest request) {
@@ -53,9 +51,8 @@ public class AuthService {
         }
     }
 
-    private AuthResponse issueToken(String email) {
-        UserDetails details = userDetailsService.loadUserByUsername(email);
-        String token = jwtService.generateToken(details);
+    private AuthResponse issueToken(UserEntity user) {
+        String token = jwtService.generateToken(user);
         return AuthResponse.bearer(token, jwtProperties.getExpirationMs());
     }
 }

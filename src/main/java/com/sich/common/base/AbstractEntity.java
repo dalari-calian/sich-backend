@@ -23,10 +23,10 @@ public abstract class AbstractEntity {
     private Long id;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "createdat", nullable = false, updatable = false)
     private Instant createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updatedat", nullable = false)
     private Instant updatedAt;
 }

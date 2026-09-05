@@ -8,6 +8,9 @@ import javax.crypto.SecretKey;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.sich.common.enums.UserType;
+import com.sich.user.UserEntity;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -18,12 +21,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class JwtService {
 
+    private static final String CLAIM_USER_ID = "userId";
+    private static final String CLAIM_USER_TYPE = "userType";
+
     private final JwtProperties properties;
 
-    public String generateToken(UserDetails user) {
+    public String generateToken(UserEntity user) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
-                .subject(user.getUsername())
+                .subject(user.getEmail())
+                .claim(CLAIM_USER_ID, user.getId())
+                .claim(CLAIM_USER_TYPE, user.getUserType().name())
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + properties.getExpirationMs()))
                 .signWith(signingKey())
@@ -32,6 +40,14 @@ public class JwtService {
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    public UserType extractUserType(String token) {
+        return UserType.valueOf(extractClaim(token, claims -> claims.get(CLAIM_USER_TYPE, String.class)));
+    }
+
+    public Long extractUserId(String token) {
+        return extractClaim(token, claims -> claims.get(CLAIM_USER_ID, Long.class));
     }
 
     public boolean isTokenValid(String token, UserDetails user) {

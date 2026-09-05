@@ -25,6 +25,6 @@ public class ProviderEntity extends AbstractEntity {
     private String phone;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @JoinColumn(name = "userid", nullable = false, unique = true)
     private UserEntity user;
 }

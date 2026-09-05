@@ -28,6 +28,6 @@ public class CustomerEntity extends AbstractEntity {
     private String cnpjCpf;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @JoinColumn(name = "userid", nullable = false, unique = true)
     private UserEntity user;
 }
