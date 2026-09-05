@@ -29,7 +29,11 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
             "/auth/**",
-            "/actuator/health"
+            "/actuator/health",
+            "/docs",
+            "/v3/api-docs",
+            "/v3/api-docs/**",
+            "/v3/api-docs.yaml"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
