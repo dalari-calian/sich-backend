@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: sich
+          POSTGRES_USER: sich_user
+          POSTGRES_PASSWORD: sich1234
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sich_user -d sich"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configura JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Torna o Maven Wrapper executável
+        run: chmod +x mvnw
+
+      - name: Compila o projeto
+        run: ./mvnw -B -ntp -DskipTests compile
+
+      - name: Executa os testes
+        run: ./mvnw -B -ntp test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/sich
+          SPRING_DATASOURCE_USERNAME: sich_user
+          SPRING_DATASOURCE_PASSWORD: sich1234
+          APP_SECURITY_JWT_SECRET: Y29sb2NhLXVtLXNlY3JldC1sb25nby1lLWFsZWF0b3Jpby1lbS1iYXNlNjQtY29tLXBlbG8tbWVub3MtMzItYnl0ZXM=
+          APP_SECURITY_JWT_EXPIRATION_MS: 3600000
+
+      - name: Publica relatórios de teste (se existirem)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 7
