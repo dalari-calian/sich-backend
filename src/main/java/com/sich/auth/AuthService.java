@@ -53,6 +53,6 @@ public class AuthService {
 
     private AuthResponse issueToken(UserEntity user) {
         String token = jwtService.generateToken(user);
-        return AuthResponse.bearer(token, jwtProperties.getExpirationMs());
+        return AuthResponse.bearer(token, jwtProperties.getExpirationMs(), user);
     }
 }
