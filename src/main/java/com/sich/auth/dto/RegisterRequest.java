@@ -13,5 +13,9 @@ public record RegisterRequest(
         @NotBlank String phone,
         String cnpjCpf,
         @NotBlank @Size(min = 8, message = "A senha deve ter no mínimo 8 caracteres") String password,
-        @NotNull UserType userType) {
+        @NotNull UserType userType,
+        String city,
+        String state,
+        String street,
+        String complementAdress) {
 }
