@@ -56,7 +56,8 @@ class AuthServiceTest {
     @Test
     void register_shouldCreateCustomerProfile_whenUserTypeIsCustomer() {
         RegisterRequest request = new RegisterRequest(
-                "John Doe", "john@doe.com", "11999999999", "12345678900", "password123", UserType.CUSTOMER);
+                "John Doe", "john@doe.com", "11999999999", "12345678900", "password123", UserType.CUSTOMER,
+                "São Paulo", "SP", "Rua A", "Apto 1");
         UserEntity user = new UserEntity();
         user.setId(1L);
         user.setEmail("john@doe.com");
@@ -78,7 +79,8 @@ class AuthServiceTest {
     @Test
     void register_shouldCreateProviderProfile_whenUserTypeIsProvider() {
         RegisterRequest request = new RegisterRequest(
-                "Jane Doe", "jane@doe.com", "11999999999", null, "password123", UserType.PROVIDER);
+                "Jane Doe", "jane@doe.com", "11999999999", null, "password123", UserType.PROVIDER,
+                null, null, null, null);
         UserEntity user = new UserEntity();
         user.setId(2L);
         user.setEmail("jane@doe.com");
@@ -137,7 +139,7 @@ class AuthServiceTest {
 
         verify(providerService, never()).findByUser(any());
         assertThat(response).isEqualTo(new UserProfileResponse(
-                1L, "john@doe.com", UserType.CUSTOMER, true,
+                "john@doe.com", UserType.CUSTOMER,
                 "John Doe", "11999999999", "12345678900",
                 "São Paulo", "SP", "Rua A", "Apto 1"));
     }
@@ -162,7 +164,7 @@ class AuthServiceTest {
 
         verify(customerService, never()).findByUser(any());
         assertThat(response).isEqualTo(new UserProfileResponse(
-                2L, "jane@doe.com", UserType.PROVIDER, true,
+                "jane@doe.com", UserType.PROVIDER,
                 "Jane Doe", "11999999999", null, null, null, null, null));
     }
 }
