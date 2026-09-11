@@ -1,5 +1,7 @@
 package com.sich.user;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,5 +36,21 @@ public class UserService {
     public UserEntity findByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+    }
+
+    @Transactional(readOnly = true)
+    public UserEntity findById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+    }
+
+    @Transactional(readOnly = true)
+    public UserEntity getCurrentlyAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof AuthenticatedUser principal)) {
+            throw new ResourceNotFoundException("Usuário não autenticado");
+        }
+        return findById(principal.userId());
     }
 }

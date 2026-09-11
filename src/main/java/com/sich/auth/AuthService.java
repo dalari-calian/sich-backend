@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.sich.auth.dto.AuthResponse;
 import com.sich.auth.dto.LoginRequest;
 import com.sich.auth.dto.RegisterRequest;
+import com.sich.auth.dto.UserProfileResponse;
 import com.sich.auth.jwt.JwtProperties;
 import com.sich.auth.jwt.JwtService;
 import com.sich.common.enums.UserType;
@@ -41,6 +42,14 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         UserEntity user = userService.findByEmail(request.email());
         return issueToken(user);
+    }
+
+    public UserProfileResponse getMe() {
+        UserEntity user = userService.getCurrentlyAuthenticatedUser();
+        if (user.getUserType() == UserType.CUSTOMER) {
+            return UserProfileResponse.of(user, customerService.findByUser(user));
+        }
+        return UserProfileResponse.of(user, providerService.findByUser(user));
     }
 
     private void createProfile(UserEntity user, RegisterRequest request) {

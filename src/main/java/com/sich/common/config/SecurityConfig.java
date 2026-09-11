@@ -28,7 +28,8 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/auth/**",
+            "/auth/register",
+            "/auth/login",
             "/actuator/health",
             "/docs",
             "/v3/api-docs",
