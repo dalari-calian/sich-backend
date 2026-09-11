@@ -30,4 +30,16 @@ public class CustomerEntity extends AbstractEntity {
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "userid", nullable = false, unique = true)
     private UserEntity user;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "state")
+    private String state;
+
+    @Column(name = "street")
+    private String street;
+
+    @Column(name = "complementadress")
+    private String complementAdress;
 }
