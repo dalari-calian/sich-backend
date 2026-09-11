@@ -6,10 +6,8 @@ import com.sich.provider.ProviderEntity;
 import com.sich.user.UserEntity;
 
 public record UserProfileResponse(
-        Long id,
         String email,
         UserType userType,
-        boolean active,
         String name,
         String phone,
         String cnpjCpf,
@@ -20,10 +18,8 @@ public record UserProfileResponse(
 
     public static UserProfileResponse of(UserEntity user, CustomerEntity customer) {
         return new UserProfileResponse(
-                user.getId(),
                 user.getEmail(),
                 user.getUserType(),
-                user.isActive(),
                 customer.getName(),
                 customer.getPhone(),
                 customer.getCnpjCpf(),
@@ -35,10 +31,8 @@ public record UserProfileResponse(
 
     public static UserProfileResponse of(UserEntity user, ProviderEntity provider) {
         return new UserProfileResponse(
-                user.getId(),
                 user.getEmail(),
                 user.getUserType(),
-                user.isActive(),
                 provider.getName(),
                 provider.getPhone(),
                 null,
