@@ -1,16 +1,15 @@
 package com.sich.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -68,7 +67,7 @@ class AuthServiceTest {
 
         AuthResponse response = authService.register(request);
 
-        verify(customerService).create(user, "John Doe", "11999999999", "12345678900");
+        verify(customerService).create(user, "John Doe", "11999999999", "12345678900", "São Paulo", "SP", "Rua A", "Apto 1");
         verify(providerService, never()).create(any(), any(), any());
         assertThat(response.token()).isEqualTo("token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
@@ -92,7 +91,7 @@ class AuthServiceTest {
         AuthResponse response = authService.register(request);
 
         verify(providerService).create(user, "Jane Doe", "11999999999");
-        verify(customerService, never()).create(any(), any(), any(), any());
+        verify(customerService, never()).create(any(), any(), any(), any(), any(), any(), any(), any());
         assertThat(response.userType()).isEqualTo(UserType.PROVIDER);
     }
 

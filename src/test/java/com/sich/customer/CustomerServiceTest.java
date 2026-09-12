@@ -1,17 +1,16 @@
 package com.sich.customer;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.sich.common.exception.ResourceNotFoundException;
@@ -32,7 +31,7 @@ class CustomerServiceTest {
         user.setId(1L);
         when(customerRepository.save(any(CustomerEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CustomerEntity result = customerService.create(user, "John Doe", "11999999999", "12345678900");
+        CustomerEntity result = customerService.create(user, "John Doe", "11999999999", "12345678900", "São Paulo", "SP", "Rua A", "Apto 1");
 
         assertThat(result.getUser()).isSameAs(user);
         assertThat(result.getName()).isEqualTo("John Doe");

@@ -15,12 +15,16 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
 
     @Transactional
-    public CustomerEntity create(UserEntity user, String name, String phone, String cnpjCpf) {
+    public CustomerEntity create(UserEntity user, String name, String phone, String cnpjCpf, String city, String state, String street, String complementAdress) {
         CustomerEntity customer = new CustomerEntity();
         customer.setUser(user);
         customer.setName(name);
         customer.setPhone(phone);
         customer.setCnpjCpf(cnpjCpf);
+        customer.setCity(city);
+        customer.setState(state);
+        customer.setStreet(street);
+        customer.setComplementAdress(complementAdress);
         return customerRepository.save(customer);
     }
 

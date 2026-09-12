@@ -54,7 +54,7 @@ public class AuthService {
 
     private void createProfile(UserEntity user, RegisterRequest request) {
         if (request.userType() == UserType.CUSTOMER) {
-            customerService.create(user, request.name(), request.phone(), request.cnpjCpf());
+            customerService.create(user, request.name(), request.phone(), request.cnpjCpf(), request.city(), request.state(), request.street(), request.complementAdress());
         } else {
             providerService.create(user, request.name(), request.phone());
         }
