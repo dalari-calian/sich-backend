@@ -6,7 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sich.common.enums.UserType;
+import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.exception.ResourceAlreadyExistsException;
 import com.sich.common.exception.ResourceNotFoundException;
 
@@ -20,14 +20,14 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public UserEntity create(String email, String rawPassword, UserType type) {
-        if (userRepository.existsByEmail(email)) {
+    public UserEntity create(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.email())) {
             throw new ResourceAlreadyExistsException("Já existe um usuário com esse email");
         }
         UserEntity user = new UserEntity();
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(rawPassword));
-        user.setUserType(type);
+        user.setEmail(request.email());
+        user.setPassword(passwordEncoder.encode(request.password()));
+        user.setUserType(request.userType());
         user.setActive(true);
         return userRepository.save(user);
     }

@@ -14,7 +14,10 @@ public record UserProfileResponse(
         String city,
         String state,
         String street,
-        String complementAdress) {
+        String complementAdress,
+        String neighborhood,
+        String cep,
+        String numberAdress) {
 
     public static UserProfileResponse of(UserEntity user, CustomerEntity customer) {
         return new UserProfileResponse(
@@ -26,7 +29,10 @@ public record UserProfileResponse(
                 customer.getCity(),
                 customer.getState(),
                 customer.getStreet(),
-                customer.getComplementAdress());
+                customer.getComplementAdress(),
+                customer.getNeighborhood(),
+                customer.getCep(),
+                customer.getNumberAdress());
     }
 
     public static UserProfileResponse of(UserEntity user, ProviderEntity provider) {
@@ -35,10 +41,13 @@ public record UserProfileResponse(
                 user.getUserType(),
                 provider.getName(),
                 provider.getPhone(),
-                null,
-                null,
-                null,
-                null,
-                null);
+                provider.getCnpjCpf(),
+                provider.getCity(),
+                provider.getState(),
+                provider.getStreet(),
+                provider.getComplementAdress(),
+                provider.getNeighborhood(),
+                provider.getCep(),
+                provider.getNumberAdress());
     }
 }

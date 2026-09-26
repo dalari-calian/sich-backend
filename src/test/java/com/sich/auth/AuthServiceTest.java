@@ -56,19 +56,19 @@ class AuthServiceTest {
     void register_shouldCreateCustomerProfile_whenUserTypeIsCustomer() {
         RegisterRequest request = new RegisterRequest(
                 "John Doe", "john@doe.com", "11999999999", "12345678900", "password123", UserType.CUSTOMER,
-                "São Paulo", "SP", "Rua A", "Apto 1");
+                "São Paulo", "SP", "Rua A", "Apto 1", "Centro", "01310-100", "123");
         UserEntity user = new UserEntity();
         user.setId(1L);
         user.setEmail("john@doe.com");
         user.setUserType(UserType.CUSTOMER);
-        when(userService.create("john@doe.com", "password123", UserType.CUSTOMER)).thenReturn(user);
+        when(userService.create(request)).thenReturn(user);
         when(jwtService.generateToken(user)).thenReturn("token");
         when(jwtProperties.getExpirationMs()).thenReturn(3600000L);
 
         AuthResponse response = authService.register(request);
 
-        verify(customerService).create(user, "John Doe", "11999999999", "12345678900", "São Paulo", "SP", "Rua A", "Apto 1");
-        verify(providerService, never()).create(any(), any(), any());
+        verify(customerService).create(user, request);
+        verify(providerService, never()).create(any(), any());
         assertThat(response.token()).isEqualTo("token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.expiresInMs()).isEqualTo(3600000L);
@@ -79,19 +79,19 @@ class AuthServiceTest {
     void register_shouldCreateProviderProfile_whenUserTypeIsProvider() {
         RegisterRequest request = new RegisterRequest(
                 "Jane Doe", "jane@doe.com", "11999999999", null, "password123", UserType.PROVIDER,
-                null, null, null, null);
+                null, null, null, null, null, null, null);
         UserEntity user = new UserEntity();
         user.setId(2L);
         user.setEmail("jane@doe.com");
         user.setUserType(UserType.PROVIDER);
-        when(userService.create("jane@doe.com", "password123", UserType.PROVIDER)).thenReturn(user);
+        when(userService.create(request)).thenReturn(user);
         when(jwtService.generateToken(user)).thenReturn("token");
         when(jwtProperties.getExpirationMs()).thenReturn(3600000L);
 
         AuthResponse response = authService.register(request);
 
-        verify(providerService).create(user, "Jane Doe", "11999999999");
-        verify(customerService, never()).create(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(providerService).create(user, request);
+        verify(customerService, never()).create(any(), any());
         assertThat(response.userType()).isEqualTo(UserType.PROVIDER);
     }
 
@@ -130,6 +130,9 @@ class AuthServiceTest {
         customer.setState("SP");
         customer.setStreet("Rua A");
         customer.setComplementAdress("Apto 1");
+        customer.setNeighborhood("Centro");
+        customer.setCep("01310100");
+        customer.setNumberAdress("123");
 
         when(userService.getCurrentlyAuthenticatedUser()).thenReturn(user);
         when(customerService.findByUser(user)).thenReturn(customer);
@@ -140,7 +143,8 @@ class AuthServiceTest {
         assertThat(response).isEqualTo(new UserProfileResponse(
                 "john@doe.com", UserType.CUSTOMER,
                 "John Doe", "11999999999", "12345678900",
-                "São Paulo", "SP", "Rua A", "Apto 1"));
+                "São Paulo", "SP", "Rua A", "Apto 1",
+                "Centro", "01310100", "123"));
     }
 
     @Test
@@ -155,6 +159,14 @@ class AuthServiceTest {
         provider.setUser(user);
         provider.setName("Jane Doe");
         provider.setPhone("11999999999");
+        provider.setCnpjCpf("12345678900");
+        provider.setCity("São Paulo");
+        provider.setState("SP");
+        provider.setStreet("Rua A");
+        provider.setComplementAdress("Apto 1");
+        provider.setNeighborhood("Centro");
+        provider.setCep("01310100");
+        provider.setNumberAdress("123");
 
         when(userService.getCurrentlyAuthenticatedUser()).thenReturn(user);
         when(providerService.findByUser(user)).thenReturn(provider);
@@ -164,6 +176,8 @@ class AuthServiceTest {
         verify(customerService, never()).findByUser(any());
         assertThat(response).isEqualTo(new UserProfileResponse(
                 "jane@doe.com", UserType.PROVIDER,
-                "Jane Doe", "11999999999", null, null, null, null, null));
+                "Jane Doe", "11999999999", "12345678900",
+                "São Paulo", "SP", "Rua A", "Apto 1",
+                "Centro", "01310100", "123"));
     }
 }

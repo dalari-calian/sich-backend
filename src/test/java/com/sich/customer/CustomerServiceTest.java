@@ -13,6 +13,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.sich.auth.dto.RegisterRequest;
+import com.sich.common.enums.UserType;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.user.UserEntity;
 
@@ -29,14 +31,20 @@ class CustomerServiceTest {
     void create_shouldPersistCustomerLinkedToUser() {
         UserEntity user = new UserEntity();
         user.setId(1L);
+        RegisterRequest request = new RegisterRequest(
+                "John Doe", "john@doe.com", "11999999999", "12345678900", "password123", UserType.CUSTOMER,
+                "São Paulo", "SP", "Rua A", "Apto 1", "Centro", "01310-100", "123");
         when(customerRepository.save(any(CustomerEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CustomerEntity result = customerService.create(user, "John Doe", "11999999999", "12345678900", "São Paulo", "SP", "Rua A", "Apto 1");
+        CustomerEntity result = customerService.create(user, request);
 
         assertThat(result.getUser()).isSameAs(user);
         assertThat(result.getName()).isEqualTo("John Doe");
         assertThat(result.getPhone()).isEqualTo("11999999999");
         assertThat(result.getCnpjCpf()).isEqualTo("12345678900");
+        assertThat(result.getNeighborhood()).isEqualTo("Centro");
+        assertThat(result.getCep()).isEqualTo("01310100");
+        assertThat(result.getNumberAdress()).isEqualTo("123");
         verify(customerRepository).save(any(CustomerEntity.class));
     }
 

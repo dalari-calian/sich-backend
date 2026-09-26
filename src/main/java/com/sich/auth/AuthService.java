@@ -32,7 +32,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        UserEntity user = userService.create(request.email(), request.password(), request.userType());
+        UserEntity user = userService.create(request);
         createProfile(user, request);
         return issueToken(user);
     }
@@ -54,9 +54,9 @@ public class AuthService {
 
     private void createProfile(UserEntity user, RegisterRequest request) {
         if (request.userType() == UserType.CUSTOMER) {
-            customerService.create(user, request.name(), request.phone(), request.cnpjCpf(), request.city(), request.state(), request.street(), request.complementAdress());
+            customerService.create(user, request);
         } else {
-            providerService.create(user, request.name(), request.phone());
+            providerService.create(user, request);
         }
     }
 

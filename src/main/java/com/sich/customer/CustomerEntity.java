@@ -42,4 +42,13 @@ public class CustomerEntity extends AbstractEntity {
 
     @Column(name = "complementadress")
     private String complementAdress;
+
+    @Column(name = "neighborhood")
+    private String neighborhood;
+
+    @Column(name = "cep")
+    private String cep;
+
+    @Column(name = "numberadress")
+    private String numberAdress;
 }

@@ -23,6 +23,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.enums.UserType;
 import com.sich.common.exception.ResourceAlreadyExistsException;
 import com.sich.common.exception.ResourceNotFoundException;
@@ -44,13 +45,19 @@ class UserServiceTest {
         SecurityContextHolder.clearContext();
     }
 
+    private RegisterRequest registerRequest() {
+        return new RegisterRequest(
+                "John Doe", "john@doe.com", "11999999999", "12345678900", "plain-password", UserType.CUSTOMER,
+                "São Paulo", "SP", "Rua A", "Apto 1", "Centro", "01310-100", "123");
+    }
+
     @Test
     void create_shouldPersistUserWithEncodedPassword_whenEmailNotInUse() {
         when(userRepository.existsByEmail("john@doe.com")).thenReturn(false);
         when(passwordEncoder.encode("plain-password")).thenReturn("encoded-password");
         when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserEntity result = userService.create("john@doe.com", "plain-password", UserType.CUSTOMER);
+        UserEntity result = userService.create(registerRequest());
 
         assertThat(result.getEmail()).isEqualTo("john@doe.com");
         assertThat(result.getPassword()).isEqualTo("encoded-password");
@@ -63,7 +70,7 @@ class UserServiceTest {
     void create_shouldThrow_whenEmailAlreadyInUse() {
         when(userRepository.existsByEmail("john@doe.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.create("john@doe.com", "plain-password", UserType.CUSTOMER))
+        assertThatThrownBy(() -> userService.create(registerRequest()))
                 .isInstanceOf(ResourceAlreadyExistsException.class)
                 .hasMessage("Já existe um usuário com esse email");
 

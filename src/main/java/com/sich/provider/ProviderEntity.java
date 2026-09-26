@@ -24,7 +24,31 @@ public class ProviderEntity extends AbstractEntity {
     @Column(nullable = false)
     private String phone;
 
+    @Column(name = "cnpjcpf")
+    private String cnpjCpf;
+
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "userid", nullable = false, unique = true)
     private UserEntity user;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "state")
+    private String state;
+
+    @Column(name = "street")
+    private String street;
+
+    @Column(name = "complementadress")
+    private String complementAdress;
+
+    @Column(name = "neighborhood")
+    private String neighborhood;
+
+    @Column(name = "cep")
+    private String cep;
+
+    @Column(name = "numberadress")
+    private String numberAdress;
 }

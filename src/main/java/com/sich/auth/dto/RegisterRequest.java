@@ -17,5 +17,14 @@ public record RegisterRequest(
         String city,
         String state,
         String street,
-        String complementAdress) {
+        String complementAdress,
+        String neighborhood,
+        String cep,
+        String numberAdress) {
+
+    public RegisterRequest {
+        if (cep != null) {
+            cep = cep.replaceAll("\\D", "");
+        }
+    }
 }

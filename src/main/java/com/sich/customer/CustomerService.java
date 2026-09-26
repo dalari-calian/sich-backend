@@ -3,6 +3,7 @@ package com.sich.customer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.user.UserEntity;
 
@@ -15,16 +16,19 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
 
     @Transactional
-    public CustomerEntity create(UserEntity user, String name, String phone, String cnpjCpf, String city, String state, String street, String complementAdress) {
+    public CustomerEntity create(UserEntity user, RegisterRequest request) {
         CustomerEntity customer = new CustomerEntity();
         customer.setUser(user);
-        customer.setName(name);
-        customer.setPhone(phone);
-        customer.setCnpjCpf(cnpjCpf);
-        customer.setCity(city);
-        customer.setState(state);
-        customer.setStreet(street);
-        customer.setComplementAdress(complementAdress);
+        customer.setName(request.name());
+        customer.setPhone(request.phone());
+        customer.setCnpjCpf(request.cnpjCpf());
+        customer.setCity(request.city());
+        customer.setState(request.state());
+        customer.setStreet(request.street());
+        customer.setComplementAdress(request.complementAdress());
+        customer.setNeighborhood(request.neighborhood());
+        customer.setCep(request.cep());
+        customer.setNumberAdress(request.numberAdress());
         return customerRepository.save(customer);
     }
 
