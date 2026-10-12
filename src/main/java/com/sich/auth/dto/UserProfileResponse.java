@@ -1,5 +1,6 @@
 package com.sich.auth.dto;
 
+import com.sich.admin.AdminEntity;
 import com.sich.common.enums.UserType;
 import com.sich.customer.CustomerEntity;
 import com.sich.provider.ProviderEntity;
@@ -49,5 +50,13 @@ public record UserProfileResponse(
                 provider.getNeighborhood(),
                 provider.getCep(),
                 provider.getNumberAdress());
+    }
+
+    public static UserProfileResponse of(UserEntity user, AdminEntity admin) {
+        return new UserProfileResponse(
+                user.getEmail(),
+                user.getUserType(),
+                admin.getName(),
+                null, null, null, null, null, null, null, null, null);
     }
 }

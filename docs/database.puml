@@ -1,0 +1,115 @@
+@startuml database
+' ============================================================================
+' Esquema do banco de dados (PostgreSQL) - Sich Backend
+' Convenção: nomes de tabelas e colunas em minúsculo, sem underscore.
+' Atualize este arquivo sempre que uma tabela ou coluna for criada/alterada.
+' ============================================================================
+
+hide circle
+hide methods
+hide stereotypes
+skinparam linetype ortho
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor<<table>> #FFFFFF
+  BorderColor #555555
+  HeaderBackgroundColor #DDE7F3
+}
+
+!define table(name) entity name <<table>>
+!define pk(col) <b><color:#B8860B>PK</color> col</b>
+!define fk(col) <color:#1E6FD9>FK</color> col
+!define uq(col) <color:#2E8B57>UQ</color> col
+!define fkuq(col) <color:#1E6FD9>FK</color> <color:#2E8B57>UQ</color> col
+
+table(users) {
+  pk(id) : bigint identity NOT NULL
+  --
+  uq(email) : varchar(255) NOT NULL
+  password : varchar(255) NOT NULL
+  usertype : varchar(255) NOT NULL
+  active : boolean NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  CHECK usertype IN ('CUSTOMER', 'PROVIDER', 'ADMIN')
+}
+
+table(admins) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fkuq(userid) : bigint NOT NULL
+  name : varchar(255) NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  inserido direto no banco (docs/sql/admin.sql)
+}
+
+table(customers) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fkuq(userid) : bigint NOT NULL
+  name : varchar(255) NOT NULL
+  phone : varchar(255) NOT NULL
+  cnpjcpf : varchar(255) NULL
+  city : varchar(255) NULL
+  state : varchar(255) NULL
+  street : varchar(255) NULL
+  complementadress : varchar(255) NULL
+  neighborhood : varchar(255) NULL
+  cep : varchar(255) NULL
+  numberadress : varchar(255) NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+}
+
+table(providers) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fkuq(userid) : bigint NOT NULL
+  name : varchar(255) NOT NULL
+  phone : varchar(255) NOT NULL
+  cnpjcpf : varchar(255) NULL
+  city : varchar(255) NULL
+  state : varchar(255) NULL
+  street : varchar(255) NULL
+  complementadress : varchar(255) NULL
+  neighborhood : varchar(255) NULL
+  cep : varchar(255) NULL
+  numberadress : varchar(255) NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+}
+
+table(products) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(parentid) : bigint NULL
+  name : varchar(120) NOT NULL
+  description : text NULL
+  uq(sku) : varchar(100) NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  parentid NULL = produto raiz
+  sku: 1, 1.01, 1.01.02 (níveis separados por ".")
+}
+
+' --- Chaves estrangeiras ---------------------------------------------------
+' Notação pé-de-galinha: ||  exatamente um | o| zero ou um | o{ zero ou muitos
+
+users ||--o| customers : "customers.userid → users.id"
+users ||--o| providers : "providers.userid → users.id"
+users ||--o| admins : "admins.userid → users.id"
+' products.parentid → products.id (auto-relacionamento: árvore)
+products |o--o{ products
+
+legend right
+  <b><color:#B8860B>PK</color></b> chave primária
+  <color:#1E6FD9>FK</color> chave estrangeira
+  <color:#2E8B57>UQ</color> restrição UNIQUE
+  timestamptz = timestamp with time zone
+endlegend
+
+@enduml

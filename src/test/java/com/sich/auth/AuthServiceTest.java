@@ -1,6 +1,7 @@
 package com.sich.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,6 +15,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
+import com.sich.admin.AdminEntity;
+import com.sich.admin.AdminService;
 import com.sich.auth.dto.AuthResponse;
 import com.sich.auth.dto.LoginRequest;
 import com.sich.auth.dto.RegisterRequest;
@@ -21,6 +24,7 @@ import com.sich.auth.dto.UserProfileResponse;
 import com.sich.auth.jwt.JwtProperties;
 import com.sich.auth.jwt.JwtService;
 import com.sich.common.enums.UserType;
+import com.sich.common.exception.BusinessRuleException;
 import com.sich.customer.CustomerEntity;
 import com.sich.customer.CustomerService;
 import com.sich.provider.ProviderEntity;
@@ -39,6 +43,9 @@ class AuthServiceTest {
 
     @Mock
     private ProviderService providerService;
+
+    @Mock
+    private AdminService adminService;
 
     @Mock
     private AuthenticationManager authenticationManager;
@@ -93,6 +100,20 @@ class AuthServiceTest {
         verify(providerService).create(user, request);
         verify(customerService, never()).create(any(), any());
         assertThat(response.userType()).isEqualTo(UserType.PROVIDER);
+    }
+
+    @Test
+    void register_shouldThrow_whenUserTypeIsAdmin() {
+        RegisterRequest request = new RegisterRequest(
+                "Admin", "admin@sich.com", "11999999999", null, "password123", UserType.ADMIN,
+                null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Não é permitido cadastrar administradores");
+        verify(userService, never()).create(any());
+        verify(customerService, never()).create(any(), any());
+        verify(providerService, never()).create(any(), any());
     }
 
     @Test
@@ -179,5 +200,29 @@ class AuthServiceTest {
                 "Jane Doe", "11999999999", "12345678900",
                 "São Paulo", "SP", "Rua A", "Apto 1",
                 "Centro", "01310100", "123"));
+    }
+
+    @Test
+    void getMe_shouldReturnAdminProfile_whenUserIsAdmin() {
+        UserEntity user = new UserEntity();
+        user.setId(3L);
+        user.setEmail("admin@sich.com");
+        user.setUserType(UserType.ADMIN);
+        user.setActive(true);
+
+        AdminEntity admin = new AdminEntity();
+        admin.setUser(user);
+        admin.setName("Admin Sich");
+
+        when(userService.getCurrentlyAuthenticatedUser()).thenReturn(user);
+        when(adminService.findByUser(user)).thenReturn(admin);
+
+        UserProfileResponse response = authService.getMe();
+
+        verify(customerService, never()).findByUser(any());
+        verify(providerService, never()).findByUser(any());
+        assertThat(response).isEqualTo(new UserProfileResponse(
+                "admin@sich.com", UserType.ADMIN, "Admin Sich",
+                null, null, null, null, null, null, null, null, null));
     }
 }
