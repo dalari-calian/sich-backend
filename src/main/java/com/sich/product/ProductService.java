@@ -16,6 +16,7 @@ import com.sich.product.dto.ProductRequest;
 import com.sich.product.dto.ProductResponse;
 import com.sich.product.dto.ProductTreeResponse;
 import com.sich.product.dto.ProductUpdateRequest;
+import com.sich.providerproduct.ProviderProductRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +39,7 @@ public class ProductService {
     private static final Comparator<ProductEntity> BY_SKU = (a, b) -> compareSku(a.getSku(), b.getSku());
 
     private final ProductRepository productRepository;
+    private final ProviderProductRepository providerProductRepository;
 
     @Transactional
     public ProductResponse create(ProductRequest request) {
@@ -60,7 +62,7 @@ public class ProductService {
 
     @Transactional
     public ProductResponse update(Long id, ProductUpdateRequest request) {
-        ProductEntity product = getById(id);
+        ProductEntity product = findEntityById(id);
         product.setName(request.name());
         product.setDescription(request.description());
         return ProductResponse.of(productRepository.save(product));
@@ -68,16 +70,19 @@ public class ProductService {
 
     @Transactional
     public void delete(Long id) {
-        ProductEntity product = getById(id);
+        ProductEntity product = findEntityById(id);
         if (productRepository.existsByParentId(id)) {
             throw new BusinessRuleException("Não é possível excluir um produto que possui filhos");
+        }
+        if (providerProductRepository.existsByProductId(id)) {
+            throw new BusinessRuleException("Não é possível excluir um produto prestado por algum prestador");
         }
         productRepository.delete(product);
     }
 
     @Transactional(readOnly = true)
     public ProductResponse findById(Long id) {
-        return ProductResponse.of(getById(id));
+        return ProductResponse.of(findEntityById(id));
     }
 
     @Transactional(readOnly = true)
@@ -97,7 +102,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponse> findChildren(Long id) {
-        getById(id);
+        findEntityById(id);
         return productRepository.findByParentId(id).stream()
                 .sorted(BY_SKU)
                 .map(ProductResponse::of)
@@ -106,7 +111,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductResponse findParent(Long id) {
-        ProductEntity parent = getById(id).getParent();
+        ProductEntity parent = findEntityById(id).getParent();
         if (parent == null) {
             throw new ResourceNotFoundException("Produto raiz não possui pai");
         }
@@ -119,7 +124,7 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public List<ProductResponse> findAncestors(Long id) {
-        String sku = getById(id).getSku();
+        String sku = findEntityById(id).getSku();
         List<String> ancestorSkus = new ArrayList<>();
         int index = sku.indexOf(SKU_SEPARATOR);
         while (index > 0) {
@@ -142,14 +147,15 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductTreeResponse findSubtree(Long id) {
-        ProductEntity product = getById(id);
+        ProductEntity product = findEntityById(id);
         List<ProductEntity> nodes = new ArrayList<>();
         nodes.add(product);
         nodes.addAll(productRepository.findBySkuStartingWith(product.getSku() + SKU_SEPARATOR));
         return buildTree(nodes).getFirst();
     }
 
-    private ProductEntity getById(Long id) {
+    @Transactional(readOnly = true)
+    public ProductEntity findEntityById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado"));
     }

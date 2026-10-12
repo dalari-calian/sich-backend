@@ -46,6 +46,14 @@ ou componentes de interface, que não é o caso, não precisa implementar.
   - não muda ao editar nome/descrição. O pai de um produto não é alterável (mudar o pai mudaria a SKU dele e de todos os descendentes).
 - Referências a produtos em outras tabelas devem usar o `id`, nunca a SKU.
 - A SKU também serve para consultas de árvore: descendentes = `sku LIKE '<sku>.%'`; ancestrais = prefixos da SKU.
-- Exclusão só é permitida quando o produto **não possui filhos**.
+- Exclusão só é permitida quando o produto **não possui filhos** e **não é prestado por nenhum prestador**.
 - Leitura da árvore: uma consulta ordenada por SKU e montagem em memória (não percorrer relacionamentos `@OneToMany` recursivamente).
 - O diagrama do banco fica em `docs/database.puml` e deve ser atualizado sempre que uma tabela ou coluna for criada ou alterada.
+
+## Regras de negócio — Produtos do prestador (`providerproducts`)
+
+- O prestador escolhe, entre os produtos do catálogo (`products`), quais ele presta, informando **descrição** (opcional, salva como enviada) e **preço** (obrigatório, > 0, até 2 casas decimais).
+- Pode selecionar qualquer item da árvore do catálogo (raiz ou filho).
+- Cada produto aparece **uma vez por prestador** (UNIQUE `providerid` + `productid`); repetir retorna 409.
+- Rotas em `/providers/me/products`, **apenas para PROVIDER**. O prestador é sempre identificado pelo token, nunca pelo corpo/URL; um prestador não enxerga nem altera registros de outro (retorna 404).
+- Pode adicionar, listar, consultar, alterar descrição/preço e remover. O produto do catálogo de um registro não é alterável: para trocar, remove e adiciona outro.

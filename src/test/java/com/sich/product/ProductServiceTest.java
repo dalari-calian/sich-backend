@@ -23,12 +23,16 @@ import com.sich.product.dto.ProductRequest;
 import com.sich.product.dto.ProductResponse;
 import com.sich.product.dto.ProductTreeResponse;
 import com.sich.product.dto.ProductUpdateRequest;
+import com.sich.providerproduct.ProviderProductRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private ProviderProductRepository providerProductRepository;
 
     @InjectMocks
     private ProductService productService;
@@ -166,6 +170,27 @@ class ProductServiceTest {
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessage("Não é possível excluir um produto que possui filhos");
         verify(productRepository, never()).delete(any());
+    }
+
+    @Test
+    void delete_shouldThrow_whenProductIsProvidedByAnyProvider() {
+        ProductEntity product = product(1L, "1", null);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.existsByParentId(1L)).thenReturn(false);
+        when(providerProductRepository.existsByProductId(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> productService.delete(1L))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Não é possível excluir um produto prestado por algum prestador");
+        verify(productRepository, never()).delete(any());
+    }
+
+    @Test
+    void findEntityById_shouldReturnEntity() {
+        ProductEntity product = product(1L, "1", null);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+        assertThat(productService.findEntityById(1L)).isSameAs(product);
     }
 
     @Test

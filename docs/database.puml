@@ -96,6 +96,19 @@ table(products) {
   sku: 1, 1.01, 1.01.02 (níveis separados por ".")
 }
 
+table(providerproducts) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(providerid) : bigint NOT NULL
+  fk(productid) : bigint NOT NULL
+  description : text NULL
+  price : numeric(10,2) NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  UNIQUE (providerid, productid)
+}
+
 ' --- Chaves estrangeiras ---------------------------------------------------
 ' Notação pé-de-galinha: ||  exatamente um | o| zero ou um | o{ zero ou muitos
 
@@ -104,6 +117,8 @@ users ||--o| providers : "providers.userid → users.id"
 users ||--o| admins : "admins.userid → users.id"
 ' products.parentid → products.id (auto-relacionamento: árvore)
 products |o--o{ products
+providers ||--o{ providerproducts : "providerproducts.providerid → providers.id"
+products ||--o{ providerproducts : "providerproducts.productid → products.id"
 
 legend right
   <b><color:#B8860B>PK</color></b> chave primária
