@@ -23,6 +23,7 @@ import com.sich.category.CategoryService;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.product.dto.ProductRequest;
+import com.sich.product.dto.ProductImageResponse;
 import com.sich.product.dto.ProductResponse;
 import com.sich.product.dto.ProductStatusRequest;
 import com.sich.provider.ProviderEntity;
@@ -35,6 +36,9 @@ class ProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private ProductImageRepository productImageRepository;
 
     @Mock
     private CategoryService categoryService;
@@ -75,6 +79,16 @@ class ProductServiceTest {
         product.setPrice(new BigDecimal("120.00"));
         product.setDurationMinutes(90);
         return product;
+    }
+
+    private static final String IMAGE = "data:image/png;base64,AQID";
+
+    private static ProductImageEntity image(Long id, ProductEntity product) {
+        ProductImageEntity image = new ProductImageEntity();
+        image.setId(id);
+        image.setProduct(product);
+        image.setImage(IMAGE);
+        return image;
     }
 
     private static ProductRequest request(String duration) {
@@ -204,21 +218,79 @@ class ProductServiceTest {
     }
 
     @Test
-    void findById_shouldReturnOwnedProduct() {
-        when(productRepository.findByIdAndProviderId(1L, 10L)).thenReturn(Optional.of(product(1L)));
+    void findById_shouldReturnOwnedProductWithImages() {
+        ProductEntity product = product(1L);
+        when(productRepository.findByIdAndProviderId(1L, 10L)).thenReturn(Optional.of(product));
+        when(productImageRepository.findByProductIdOrderByIdAsc(1L))
+                .thenReturn(List.of(image(7L, product), image(8L, product)));
 
         ProductResponse result = productService.findById(1L);
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.duration()).isEqualTo("01:30");
+        assertThat(result.images()).extracting(ProductImageResponse::id).containsExactly(7L, 8L);
+        assertThat(result.images().get(0).image()).isEqualTo(IMAGE);
     }
 
     @Test
-    void findAll_shouldReturnProductsOfAuthenticatedProvider() {
-        when(productRepository.findByProviderIdOrderByNameAsc(10L)).thenReturn(List.of(product(1L), product(2L)));
+    void update_shouldReturnImagesOfProduct() {
+        ProductEntity product = product(1L);
+        when(productRepository.findByIdAndProviderId(1L, 10L)).thenReturn(Optional.of(product));
+        when(categoryService.findEntityById(3L)).thenReturn(category);
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productImageRepository.findByProductIdOrderByIdAsc(1L)).thenReturn(List.of(image(7L, product)));
+
+        ProductResponse result = productService.update(1L, request("01:00"));
+
+        assertThat(result.images()).extracting(ProductImageResponse::id).containsExactly(7L);
+    }
+
+    @Test
+    void updateStatus_shouldReturnImagesOfProduct() {
+        ProductEntity product = product(1L);
+        when(productRepository.findByIdAndProviderId(1L, 10L)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productImageRepository.findByProductIdOrderByIdAsc(1L)).thenReturn(List.of(image(7L, product)));
+
+        ProductResponse result = productService.updateStatus(1L, new ProductStatusRequest(false));
+
+        assertThat(result.images()).extracting(ProductImageResponse::id).containsExactly(7L);
+    }
+
+    @Test
+    void create_shouldReturnEmptyImagesWithoutQueryingThem() {
+        when(categoryService.findEntityById(3L)).thenReturn(category);
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductResponse result = productService.create(request("01:00"));
+
+        assertThat(result.images()).isEmpty();
+        verify(productImageRepository, never()).findByProductIdOrderByIdAsc(any());
+    }
+
+    @Test
+    void findAll_shouldReturnEachProductWithItsOwnImagesUsingOneQuery() {
+        ProductEntity first = product(1L);
+        ProductEntity second = product(2L);
+        ProductEntity third = product(3L);
+        when(productRepository.findByProviderIdOrderByNameAsc(10L)).thenReturn(List.of(first, second, third));
+        when(productImageRepository.findByProductIdInOrderByIdAsc(List.of(1L, 2L, 3L)))
+                .thenReturn(List.of(image(7L, first), image(8L, second), image(9L, first)));
 
         List<ProductResponse> result = productService.findAll();
 
-        assertThat(result).extracting(ProductResponse::id).containsExactly(1L, 2L);
+        assertThat(result).extracting(ProductResponse::id).containsExactly(1L, 2L, 3L);
+        assertThat(result.get(0).images()).extracting(ProductImageResponse::id).containsExactly(7L, 9L);
+        assertThat(result.get(1).images()).extracting(ProductImageResponse::id).containsExactly(8L);
+        assertThat(result.get(2).images()).isEmpty();
+        verify(productImageRepository, never()).findByProductIdOrderByIdAsc(any());
+    }
+
+    @Test
+    void findAll_shouldReturnEmptyWithoutQueryingImages_whenProviderHasNoProducts() {
+        when(productRepository.findByProviderIdOrderByNameAsc(10L)).thenReturn(List.of());
+
+        assertThat(productService.findAll()).isEmpty();
+        verify(productImageRepository, never()).findByProductIdInOrderByIdAsc(any());
     }
 }

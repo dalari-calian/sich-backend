@@ -2,6 +2,7 @@ package com.sich.product.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 import com.sich.common.util.DurationFormat;
 import com.sich.product.ProductEntity;
@@ -16,10 +17,11 @@ public record ProductResponse(
         String duration,
         Integer durationMinutes,
         boolean active,
+        List<ProductImageResponse> images,
         Instant createdAt,
         Instant updatedAt) {
 
-    public static ProductResponse of(ProductEntity product) {
+    public static ProductResponse of(ProductEntity product, List<ProductImageResponse> images) {
         return new ProductResponse(
                 product.getId(),
                 product.getCategory().getId(),
@@ -30,6 +32,7 @@ public record ProductResponse(
                 DurationFormat.format(product.getDurationMinutes()),
                 product.getDurationMinutes(),
                 product.isActive(),
+                images,
                 product.getCreatedAt(),
                 product.getUpdatedAt());
     }

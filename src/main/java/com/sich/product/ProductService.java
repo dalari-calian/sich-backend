@@ -1,6 +1,8 @@
 package com.sich.product;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,6 +11,7 @@ import com.sich.category.CategoryService;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.common.util.DurationFormat;
+import com.sich.product.dto.ProductImageResponse;
 import com.sich.product.dto.ProductRequest;
 import com.sich.product.dto.ProductResponse;
 import com.sich.product.dto.ProductStatusRequest;
@@ -28,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductImageRepository productImageRepository;
     private final CategoryService categoryService;
     private final ProviderService providerService;
     private final UserService userService;
@@ -37,21 +41,21 @@ public class ProductService {
         ProductEntity product = new ProductEntity();
         product.setProvider(currentProvider());
         apply(product, request);
-        return ProductResponse.of(productRepository.save(product));
+        return ProductResponse.of(productRepository.save(product), List.of());
     }
 
     @Transactional
     public ProductResponse update(Long id, ProductRequest request) {
         ProductEntity product = findOwned(id);
         apply(product, request);
-        return ProductResponse.of(productRepository.save(product));
+        return withImages(productRepository.save(product));
     }
 
     @Transactional
     public ProductResponse updateStatus(Long id, ProductStatusRequest request) {
         ProductEntity product = findOwned(id);
         product.setActive(request.active());
-        return ProductResponse.of(productRepository.save(product));
+        return withImages(productRepository.save(product));
     }
 
     /** Exclui o produto; as imagens dele são apagadas em cascata pelo banco. */
@@ -62,14 +66,30 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductResponse findById(Long id) {
-        return ProductResponse.of(findOwned(id));
+        return withImages(findOwned(id));
     }
 
+    /** Lista os produtos com as imagens, buscando as imagens de todos em uma única consulta. */
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() {
-        return productRepository.findByProviderIdOrderByNameAsc(currentProvider().getId()).stream()
-                .map(ProductResponse::of)
+        List<ProductEntity> products = productRepository.findByProviderIdOrderByNameAsc(currentProvider().getId());
+        if (products.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, List<ProductImageResponse>> imagesByProduct = productImageRepository
+                .findByProductIdInOrderByIdAsc(products.stream().map(ProductEntity::getId).toList()).stream()
+                .collect(Collectors.groupingBy(image -> image.getProduct().getId(),
+                        Collectors.mapping(ProductImageResponse::of, Collectors.toList())));
+        return products.stream()
+                .map(product -> ProductResponse.of(product, imagesByProduct.getOrDefault(product.getId(), List.of())))
                 .toList();
+    }
+
+    private ProductResponse withImages(ProductEntity product) {
+        List<ProductImageResponse> images = productImageRepository.findByProductIdOrderByIdAsc(product.getId()).stream()
+                .map(ProductImageResponse::of)
+                .toList();
+        return ProductResponse.of(product, images);
     }
 
     private void apply(ProductEntity product, ProductRequest request) {

@@ -48,7 +48,7 @@ ou componentes de interface, que não é o caso, não precisa implementar.
 - **Tempo médio**: na API/tela é `duration` no formato `HH:MM` (de `00:01` a `99:59`); no banco fica em minutos (`durationminutes`). `00:00` retorna 422. Conversão em `common/util/DurationFormat`.
 - O prestador pode ter vários produtos na mesma categoria.
 - **Situação** (`active`): `true` = ativo, `false` = inativo. Nasce ativo; o prestador altera via `PATCH /providers/me/products/{id}/status`. O prestador continua vendo os inativos na própria lista.
-- **Fotos** (`productimages`): até **5 por produto**, cada uma salva como data URL base64 (`data:image/png|jpeg|webp;base64,...`, até 2 MB decodificados). Rotas em `/providers/me/products/{productId}/images` (adicionar, listar, remover). As fotos não vêm na listagem de produtos, para não pesar a resposta. Ao excluir o produto, as fotos são apagadas em cascata (`ON DELETE CASCADE`).
+- **Fotos** (`productimages`): até **5 por produto**, cada uma salva como data URL base64 (`data:image/png|jpeg|webp;base64,...`, até 2 MB decodificados). Rotas em `/providers/me/products/{productId}/images` (adicionar, listar, remover). **Toda resposta de produto** (cadastrar, alterar, alterar situação, consultar e listar) traz o campo `images` com as fotos; na listagem, as fotos de todos os produtos são buscadas em uma única consulta (`findByProductIdInOrderByIdAsc`), nunca uma por produto. Ao excluir o produto, as fotos são apagadas em cascata (`ON DELETE CASCADE`).
 
 ## Diagrama do banco
 
