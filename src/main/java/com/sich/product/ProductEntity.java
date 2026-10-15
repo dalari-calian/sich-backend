@@ -1,6 +1,10 @@
 package com.sich.product;
 
+import java.math.BigDecimal;
+
+import com.sich.category.CategoryEntity;
 import com.sich.common.base.AbstractEntity;
+import com.sich.provider.ProviderEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,8 +17,8 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * Item do catálogo de produtos/serviços, organizado em árvore: cada registro aponta
- * para o pai no nível acima ({@code parentid}); {@code parentid} nulo = item raiz.
+ * Produto/serviço cadastrado pelo prestador. Pertence a um único prestador e a uma
+ * categoria cadastrada pelo admin.
  */
 @Getter
 @Setter
@@ -23,9 +27,14 @@ import lombok.ToString;
 public class ProductEntity extends AbstractEntity {
 
     @ToString.Exclude
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parentid")
-    private ProductEntity parent;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "providerid", nullable = false)
+    private ProviderEntity provider;
+
+    @ToString.Exclude
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "categoryid", nullable = false)
+    private CategoryEntity category;
 
     @Column(nullable = false, length = 120)
     private String name;
@@ -33,6 +42,10 @@ public class ProductEntity extends AbstractEntity {
     @Column(columnDefinition = "text")
     private String description;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String sku;
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
+
+    /** Tempo médio do serviço em minutos (na tela é exibido como HH:MM). */
+    @Column(name = "durationminutes", nullable = false)
+    private Integer durationMinutes;
 }

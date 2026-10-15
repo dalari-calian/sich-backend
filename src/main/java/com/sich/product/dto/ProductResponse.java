@@ -1,25 +1,33 @@
 package com.sich.product.dto;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
+import com.sich.common.util.DurationFormat;
 import com.sich.product.ProductEntity;
 
 public record ProductResponse(
         Long id,
-        Long parentId,
+        Long categoryId,
+        String categoryName,
         String name,
         String description,
-        String sku,
+        BigDecimal price,
+        String duration,
+        Integer durationMinutes,
         Instant createdAt,
         Instant updatedAt) {
 
     public static ProductResponse of(ProductEntity product) {
         return new ProductResponse(
                 product.getId(),
-                product.getParent() == null ? null : product.getParent().getId(),
+                product.getCategory().getId(),
+                product.getCategory().getName(),
                 product.getName(),
                 product.getDescription(),
-                product.getSku(),
+                product.getPrice(),
+                DurationFormat.format(product.getDurationMinutes()),
+                product.getDurationMinutes(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());
     }

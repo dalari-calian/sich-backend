@@ -82,31 +82,31 @@ table(providers) {
   updatedat : timestamptz NOT NULL
 }
 
+table(categories) {
+  pk(id) : bigint identity NOT NULL
+  --
+  uq(name) : varchar(120) NOT NULL
+  description : text NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  cadastrada apenas pelo ADMIN
+}
+
 table(products) {
   pk(id) : bigint identity NOT NULL
   --
-  fk(parentid) : bigint NULL
+  fk(providerid) : bigint NOT NULL
+  fk(categoryid) : bigint NOT NULL
   name : varchar(120) NOT NULL
   description : text NULL
-  uq(sku) : varchar(100) NOT NULL
-  createdat : timestamptz NOT NULL
-  updatedat : timestamptz NOT NULL
-  ..
-  parentid NULL = produto raiz
-  sku: 1, 1.01, 1.01.02 (níveis separados por ".")
-}
-
-table(providerproducts) {
-  pk(id) : bigint identity NOT NULL
-  --
-  fk(providerid) : bigint NOT NULL
-  fk(productid) : bigint NOT NULL
-  description : text NULL
   price : numeric(10,2) NOT NULL
+  durationminutes : integer NOT NULL
   createdat : timestamptz NOT NULL
   updatedat : timestamptz NOT NULL
   ..
-  UNIQUE (providerid, productid)
+  cadastrado apenas pelo PROVIDER (dono)
+  durationminutes: tela exibe HH:MM (até 99:59)
 }
 
 ' --- Chaves estrangeiras ---------------------------------------------------
@@ -115,10 +115,8 @@ table(providerproducts) {
 users ||--o| customers : "customers.userid → users.id"
 users ||--o| providers : "providers.userid → users.id"
 users ||--o| admins : "admins.userid → users.id"
-' products.parentid → products.id (auto-relacionamento: árvore)
-products |o--o{ products
-providers ||--o{ providerproducts : "providerproducts.providerid → providers.id"
-products ||--o{ providerproducts : "providerproducts.productid → products.id"
+providers ||--o{ products : "products.providerid → providers.id"
+categories ||--o{ products : "products.categoryid → categories.id"
 
 legend right
   <b><color:#B8860B>PK</color></b> chave primária

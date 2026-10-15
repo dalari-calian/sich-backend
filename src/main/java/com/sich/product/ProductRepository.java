@@ -1,34 +1,18 @@
 package com.sich.product;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-
-import jakarta.persistence.LockModeType;
 
 public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
-    List<ProductEntity> findByParentIsNull();
+    @EntityGraph(attributePaths = "category")
+    List<ProductEntity> findByProviderIdOrderByNameAsc(Long providerId);
 
-    List<ProductEntity> findByParentId(Long parentId);
+    @EntityGraph(attributePaths = "category")
+    Optional<ProductEntity> findByIdAndProviderId(Long id, Long providerId);
 
-    List<ProductEntity> findBySkuIn(Collection<String> skus);
-
-    List<ProductEntity> findBySkuStartingWith(String skuPrefix);
-
-    Optional<ProductEntity> findBySku(String sku);
-
-    boolean existsByParentId(Long parentId);
-
-    /**
-     * Busca o pai travando a linha, para que dois filhos criados ao mesmo tempo
-     * não recebam a mesma SKU.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from ProductEntity p where p.id = :id")
-    Optional<ProductEntity> findByIdForUpdate(Long id);
+    boolean existsByCategoryId(Long categoryId);
 }
