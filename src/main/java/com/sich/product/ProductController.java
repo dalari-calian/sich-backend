@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sich.product.dto.ProductRequest;
 import com.sich.product.dto.ProductResponse;
+import com.sich.product.dto.ProductStatusRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -48,8 +50,16 @@ public class ProductController {
         return ResponseEntity.ok(productService.update(id, request));
     }
 
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "Ativa ou inativa um produto/serviço do prestador")
+    public ResponseEntity<ProductResponse> updateStatus(
+            @Parameter(description = "Id do produto") @PathVariable Long id,
+            @Valid @RequestBody ProductStatusRequest request) {
+        return ResponseEntity.ok(productService.updateStatus(id, request));
+    }
+
     @DeleteMapping("/{id}")
-    @Operation(summary = "Exclui um produto/serviço do prestador")
+    @Operation(summary = "Exclui um produto/serviço do prestador (e as imagens dele)")
     public ResponseEntity<Void> delete(@Parameter(description = "Id do produto") @PathVariable Long id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();

@@ -24,6 +24,7 @@ import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.product.dto.ProductRequest;
 import com.sich.product.dto.ProductResponse;
+import com.sich.product.dto.ProductStatusRequest;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
 import com.sich.user.UserEntity;
@@ -94,7 +95,35 @@ class ProductServiceTest {
         assertThat(result.price()).isEqualByComparingTo("120.00");
         assertThat(result.durationMinutes()).isEqualTo(90);
         assertThat(result.duration()).isEqualTo("01:30");
+        assertThat(result.active()).isTrue();
         verify(productRepository).save(any(ProductEntity.class));
+    }
+
+    @Test
+    void updateStatus_shouldInactivateAndReactivateOwnedProduct() {
+        ProductEntity product = product(1L);
+        when(productRepository.findByIdAndProviderId(1L, 10L)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(productService.updateStatus(1L, new ProductStatusRequest(false)).active()).isFalse();
+        assertThat(productService.updateStatus(1L, new ProductStatusRequest(true)).active()).isTrue();
+    }
+
+    @Test
+    void updateStatus_shouldThrow_whenProductNotOwnedByProvider() {
+        when(productRepository.findByIdAndProviderId(1L, 10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.updateStatus(1L, new ProductStatusRequest(false)))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void findOwned_shouldReturnEntityOfAuthenticatedProvider() {
+        ProductEntity product = product(1L);
+        when(productRepository.findByIdAndProviderId(1L, 10L)).thenReturn(Optional.of(product));
+
+        assertThat(productService.findOwned(1L)).isSameAs(product);
     }
 
     @Test

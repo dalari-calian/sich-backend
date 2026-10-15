@@ -11,6 +11,7 @@ import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.common.util.DurationFormat;
 import com.sich.product.dto.ProductRequest;
 import com.sich.product.dto.ProductResponse;
+import com.sich.product.dto.ProductStatusRequest;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
 import com.sich.user.UserService;
@@ -47,6 +48,14 @@ public class ProductService {
     }
 
     @Transactional
+    public ProductResponse updateStatus(Long id, ProductStatusRequest request) {
+        ProductEntity product = findOwned(id);
+        product.setActive(request.active());
+        return ProductResponse.of(productRepository.save(product));
+    }
+
+    /** Exclui o produto; as imagens dele são apagadas em cascata pelo banco. */
+    @Transactional
     public void delete(Long id) {
         productRepository.delete(findOwned(id));
     }
@@ -79,7 +88,9 @@ public class ProductService {
         return providerService.findByUser(userService.getCurrentlyAuthenticatedUser());
     }
 
-    private ProductEntity findOwned(Long id) {
+    /** Produto do prestador autenticado; 404 se não existir ou for de outro prestador. */
+    @Transactional(readOnly = true)
+    public ProductEntity findOwned(Long id) {
         return productRepository.findByIdAndProviderId(id, currentProvider().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado"));
     }

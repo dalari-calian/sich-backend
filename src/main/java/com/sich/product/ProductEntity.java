@@ -2,6 +2,8 @@ package com.sich.product;
 
 import java.math.BigDecimal;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import com.sich.category.CategoryEntity;
 import com.sich.common.base.AbstractEntity;
 import com.sich.provider.ProviderEntity;
@@ -48,4 +50,9 @@ public class ProductEntity extends AbstractEntity {
     /** Tempo médio do serviço em minutos (na tela é exibido como HH:MM). */
     @Column(name = "durationminutes", nullable = false)
     private Integer durationMinutes;
+
+    /** Situação do produto: true = ativo, false = inativo. Nasce ativo. */
+    @ColumnDefault("true")
+    @Column(nullable = false)
+    private boolean active = true;
 }

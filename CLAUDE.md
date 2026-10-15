@@ -47,6 +47,8 @@ ou componentes de interface, que não é o caso, não precisa implementar.
 - Campos: `categoryid` (categoria cadastrada pelo admin, obrigatória), `name` (obrigatório), `description` (opcional), `price` (obrigatório, > 0, até 2 casas decimais) e tempo médio.
 - **Tempo médio**: na API/tela é `duration` no formato `HH:MM` (de `00:01` a `99:59`); no banco fica em minutos (`durationminutes`). `00:00` retorna 422. Conversão em `common/util/DurationFormat`.
 - O prestador pode ter vários produtos na mesma categoria.
+- **Situação** (`active`): `true` = ativo, `false` = inativo. Nasce ativo; o prestador altera via `PATCH /providers/me/products/{id}/status`. O prestador continua vendo os inativos na própria lista.
+- **Fotos** (`productimages`): até **5 por produto**, cada uma salva como data URL base64 (`data:image/png|jpeg|webp;base64,...`, até 2 MB decodificados). Rotas em `/providers/me/products/{productId}/images` (adicionar, listar, remover). As fotos não vêm na listagem de produtos, para não pesar a resposta. Ao excluir o produto, as fotos são apagadas em cascata (`ON DELETE CASCADE`).
 
 ## Diagrama do banco
 

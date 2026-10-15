@@ -15,6 +15,7 @@ public record ProductResponse(
         BigDecimal price,
         String duration,
         Integer durationMinutes,
+        boolean active,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -28,6 +29,7 @@ public record ProductResponse(
                 product.getPrice(),
                 DurationFormat.format(product.getDurationMinutes()),
                 product.getDurationMinutes(),
+                product.isActive(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());
     }

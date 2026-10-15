@@ -102,11 +102,26 @@ table(products) {
   description : text NULL
   price : numeric(10,2) NOT NULL
   durationminutes : integer NOT NULL
+  active : boolean NOT NULL DEFAULT true
   createdat : timestamptz NOT NULL
   updatedat : timestamptz NOT NULL
   ..
   cadastrado apenas pelo PROVIDER (dono)
   durationminutes: tela exibe HH:MM (até 99:59)
+  active: true = ativo, false = inativo
+}
+
+table(productimages) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(productid) : bigint NOT NULL
+  image : text NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  data URL base64 (png/jpeg/webp, até 2 MB)
+  máximo 5 por produto
+  ON DELETE CASCADE (apaga com o produto)
 }
 
 ' --- Chaves estrangeiras ---------------------------------------------------
@@ -117,6 +132,7 @@ users ||--o| providers : "providers.userid → users.id"
 users ||--o| admins : "admins.userid → users.id"
 providers ||--o{ products : "products.providerid → providers.id"
 categories ||--o{ products : "products.categoryid → categories.id"
+products ||--o{ productimages : "productimages.productid → products.id"
 
 legend right
   <b><color:#B8860B>PK</color></b> chave primária
