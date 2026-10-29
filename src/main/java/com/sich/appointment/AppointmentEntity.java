@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.sich.common.base.AbstractEntity;
 import com.sich.customer.CustomerEntity;
 import com.sich.provider.ProviderEntity;
@@ -81,7 +83,9 @@ public class AppointmentEntity extends AbstractEntity {
     @Column(name = "canceledby", length = 20)
     private AppointmentOrigin canceledBy;
 
+    /** Em listagens paginadas, os itens de até 50 agendamentos são buscados numa consulta só. */
     @ToString.Exclude
+    @BatchSize(size = 50)
     @OrderBy("position")
     @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AppointmentItemEntity> items = new ArrayList<>();

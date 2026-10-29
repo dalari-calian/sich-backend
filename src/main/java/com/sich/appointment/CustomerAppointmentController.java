@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sich.appointment.dto.AppointmentResponse;
 import com.sich.appointment.dto.CustomerAppointmentRequest;
+import com.sich.appointment.dto.CustomerAppointmentSummaryResponse;
+import com.sich.common.dto.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class CustomerAppointmentController {
 
     private final AppointmentService appointmentService;
+    private final AppointmentSummaryService appointmentSummaryService;
 
     @GetMapping
     @Operation(summary = "Lista os agendamentos do cliente (inclusive os marcados pelo prestador) que começam entre as datas")
@@ -40,6 +43,26 @@ public class CustomerAppointmentController {
             @Parameter(description = "Data inicial (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @Parameter(description = "Data final, inclusive (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ResponseEntity.ok(appointmentService.findForCustomer(from, to));
+    }
+
+    @GetMapping("/summary")
+    @Operation(summary = "Contadores do cliente: atendimentos realizados, próximos e cancelados")
+    public ResponseEntity<CustomerAppointmentSummaryResponse> summary() {
+        return ResponseEntity.ok(appointmentSummaryService.forCustomer());
+    }
+
+    @GetMapping("/history")
+    @Operation(summary = "Histórico paginado: agendamentos que já começaram, do mais recente para o mais antigo")
+    public ResponseEntity<PageResponse<AppointmentResponse>> history(
+            @Parameter(description = "Página, a partir de 0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (1 a 50)") @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(appointmentService.historyForCustomer(page, size));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Detalhe de um agendamento do cliente")
+    public ResponseEntity<AppointmentResponse> findById(@Parameter(description = "Id do agendamento") @PathVariable Long id) {
+        return ResponseEntity.ok(appointmentService.findByIdForCustomer(id));
     }
 
     @PostMapping

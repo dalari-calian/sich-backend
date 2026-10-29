@@ -1,9 +1,12 @@
 package com.sich.workinghours;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +71,18 @@ public class WorkingHoursService {
                 .findByProviderIdAndWeekdayOrderByStartTimeAsc(providerId, date.getDayOfWeek().getValue()).stream()
                 .map(interval -> new TimeRange(date.atTime(interval.getStartTime()), date.atTime(interval.getEndTime())))
                 .toList();
+    }
+
+    /** Minutos de expediente do prestador somados dia a dia de {@code from} a {@code to} (inclusive). */
+    @Transactional(readOnly = true)
+    public long workingMinutesBetween(Long providerId, LocalDate from, LocalDate to) {
+        Map<Integer, Long> minutesByWeekday = workingHoursRepository.findByProviderIdOrderByWeekdayAscStartTimeAsc(providerId)
+                .stream()
+                .collect(Collectors.groupingBy(WorkingHoursEntity::getWeekday,
+                        Collectors.summingLong(interval -> Duration.between(interval.getStartTime(), interval.getEndTime()).toMinutes())));
+        return from.datesUntil(to.plusDays(1))
+                .mapToLong(date -> minutesByWeekday.getOrDefault(date.getDayOfWeek().getValue(), 0L))
+                .sum();
     }
 
     private WorkingHoursEntity toEntity(ProviderEntity provider, WorkingIntervalRequest request) {

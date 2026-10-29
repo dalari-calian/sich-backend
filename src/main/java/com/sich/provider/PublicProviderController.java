@@ -34,11 +34,18 @@ public class PublicProviderController {
     private final AvailabilityService availabilityService;
 
     @GetMapping
-    @Operation(summary = "Busca prestadores pelo nome e, opcionalmente, por categoria (com produto ativo nela)")
+    @Operation(summary = "Busca prestadores com produto ativo pelo nome do prestador ou do produto e, opcionalmente, por categorias; "
+            + "cada um vem com o menor preço e as categorias em que atende")
     public ResponseEntity<List<ProviderSummaryResponse>> search(
-            @Parameter(description = "Parte do nome do prestador") @RequestParam(required = false) String name,
-            @Parameter(description = "Id da categoria") @RequestParam(required = false) Long categoryId) {
-        return ResponseEntity.ok(providerService.search(name, categoryId));
+            @Parameter(description = "Parte do nome do prestador ou do produto") @RequestParam(required = false) String q,
+            @Parameter(description = "Ids das categorias, separados por vírgula") @RequestParam(required = false) List<Long> categoryIds) {
+        return ResponseEntity.ok(providerService.search(q, categoryIds));
+    }
+
+    @GetMapping("/{providerId}")
+    @Operation(summary = "Dados do card do prestador: nome, local, menor preço e categorias")
+    public ResponseEntity<ProviderSummaryResponse> findById(@Parameter(description = "Id do prestador") @PathVariable Long providerId) {
+        return ResponseEntity.ok(providerService.findSummaryById(providerId));
     }
 
     @GetMapping("/{providerId}/products")

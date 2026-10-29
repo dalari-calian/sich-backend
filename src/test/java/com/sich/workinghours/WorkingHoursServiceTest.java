@@ -160,6 +160,20 @@ class WorkingHoursServiceTest {
     }
 
     @Test
+    void workingMinutesBetween_shouldSumIntervalsOfEachDayInPeriod() {
+        when(workingHoursRepository.findByProviderIdOrderByWeekdayAscStartTimeAsc(10L)).thenReturn(List.of(
+                interval(1, "08:00", "12:00"),
+                interval(1, "13:00", "19:00"),
+                interval(2, "09:00", "10:30")));
+        LocalDate monday = LocalDate.of(2026, 10, 19);
+
+        assertThat(workingHoursService.workingMinutesBetween(10L, monday, monday)).isEqualTo(600);
+        assertThat(workingHoursService.workingMinutesBetween(10L, monday, monday.plusDays(6))).isEqualTo(690);
+        assertThat(workingHoursService.workingMinutesBetween(10L, monday, monday.plusDays(7))).isEqualTo(1290);
+        assertThat(workingHoursService.workingMinutesBetween(10L, monday.plusDays(2), monday.plusDays(6))).isZero();
+    }
+
+    @Test
     void findIntervals_shouldReturnIntervalsOfWeekdayOnDate() {
         LocalDate tuesday = LocalDate.of(2026, 10, 20);
         when(workingHoursRepository.findByProviderIdAndWeekdayOrderByStartTimeAsc(10L, tuesday.getDayOfWeek().getValue()))

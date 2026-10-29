@@ -20,11 +20,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import com.sich.appointment.dto.AppointmentItemResponse;
 import com.sich.appointment.dto.AppointmentResponse;
 import com.sich.appointment.dto.CustomerAppointmentRequest;
 import com.sich.appointment.dto.ProviderAppointmentRequest;
+import com.sich.common.dto.PageResponse;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.common.exception.ScheduleConflictException;
@@ -449,6 +452,84 @@ class AppointmentServiceTest {
         List<AppointmentResponse> result = appointmentService.findForCustomer(TUESDAY, TUESDAY);
 
         assertThat(result).extracting(AppointmentResponse::customerName).containsExactly("Júlia Prado");
+    }
+
+    @Test
+    void findByIdForProvider_shouldReturnAppointmentWithCustomerContact() {
+        authenticatedAsProvider();
+        customer.setPhone("11999999999");
+        customer.setStreet("Rua das Flores");
+        customer.setNumberAdress("123");
+        when(appointmentRepository.findByIdAndProviderId(87L, 10L))
+                .thenReturn(Optional.of(appointment(AppointmentStatus.SCHEDULED, TUESDAY.atTime(15, 0))));
+
+        AppointmentResponse result = appointmentService.findByIdForProvider(87L);
+
+        assertThat(result.customerPhone()).isEqualTo("11999999999");
+        assertThat(result.customerAddress().street()).isEqualTo("Rua das Flores");
+        assertThat(result.customerAddress().numberAdress()).isEqualTo("123");
+        assertThat(result.providerAddress()).isNotNull();
+    }
+
+    @Test
+    void findByIdForProvider_shouldThrow_whenAppointmentBelongsToAnotherProvider() {
+        authenticatedAsProvider();
+        when(appointmentRepository.findByIdAndProviderId(87L, 10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> appointmentService.findByIdForProvider(87L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Agendamento não encontrado");
+    }
+
+    @Test
+    void findByIdForCustomer_shouldReturnOwnAppointment() {
+        authenticatedAsCustomer();
+        when(appointmentRepository.findByIdAndCustomerId(87L, 40L))
+                .thenReturn(Optional.of(appointment(AppointmentStatus.SCHEDULED, TUESDAY.atTime(15, 0))));
+
+        assertThat(appointmentService.findByIdForCustomer(87L).providerName()).isEqualTo("Ana Beatriz");
+    }
+
+    @Test
+    void findByIdForCustomer_shouldThrow_whenAppointmentBelongsToAnotherCustomer() {
+        authenticatedAsCustomer();
+        when(appointmentRepository.findByIdAndCustomerId(87L, 40L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> appointmentService.findByIdForCustomer(87L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void historyForProvider_shouldPageAppointmentsThatAlreadyStarted() {
+        authenticatedAsProvider();
+        PageRequest pageable = PageRequest.of(1, 10);
+        when(appointmentRepository.findByProviderIdAndStartAtLessThanOrderByStartAtDesc(10L, NOW, pageable))
+                .thenReturn(new PageImpl<>(List.of(appointment(AppointmentStatus.SCHEDULED, NOW.minusDays(1))), pageable, 11));
+
+        PageResponse<AppointmentResponse> result = appointmentService.historyForProvider(1, 10);
+
+        assertThat(result.content()).extracting(AppointmentResponse::id).containsExactly(87L);
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.size()).isEqualTo(10);
+        assertThat(result.totalElements()).isEqualTo(11);
+        assertThat(result.totalPages()).isEqualTo(2);
+    }
+
+    @Test
+    void historyForCustomer_shouldPageAppointmentsOfAuthenticatedCustomer() {
+        authenticatedAsCustomer();
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(appointmentRepository.findByCustomerIdAndStartAtLessThanOrderByStartAtDesc(40L, NOW, pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        assertThat(appointmentService.historyForCustomer(0, 20).content()).isEmpty();
+    }
+
+    @Test
+    void pageable_shouldKeepPageAndSizeWithinLimits() {
+        assertThat(AppointmentService.pageable(-1, 0)).isEqualTo(PageRequest.of(0, 1));
+        assertThat(AppointmentService.pageable(2, 500)).isEqualTo(PageRequest.of(2, AppointmentService.MAX_PAGE_SIZE));
+        assertThat(AppointmentService.pageable(3, 15)).isEqualTo(PageRequest.of(3, 15));
     }
 
     @Test

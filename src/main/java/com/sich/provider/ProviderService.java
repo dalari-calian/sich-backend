@@ -1,12 +1,18 @@
 package com.sich.provider;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.exception.ResourceNotFoundException;
+import com.sich.product.ProductRepository;
+import com.sich.product.ProviderCategoryName;
+import com.sich.product.ProviderMinPrice;
 import com.sich.provider.dto.ProviderSummaryResponse;
 import com.sich.user.UserEntity;
 
@@ -17,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class ProviderService {
 
     private final ProviderRepository providerRepository;
+    private final ProductRepository productRepository;
 
     @Transactional
     public ProviderEntity create(UserEntity user, RegisterRequest request) {
@@ -54,13 +61,37 @@ public class ProviderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Prestador não encontrado"));
     }
 
-    /** Busca prestadores pelo nome (parcial, sem diferenciar maiúsculas) e, opcionalmente, pela categoria. */
+    /**
+     * Busca prestadores com produto ativo pelo nome do prestador ou de um produto
+     * (parcial, sem diferenciar maiúsculas) e, opcionalmente, por categorias. O menor
+     * preço e as categorias de todos os encontrados vêm em duas consultas, nunca uma
+     * por prestador.
+     */
     @Transactional(readOnly = true)
-    public List<ProviderSummaryResponse> search(String name, Long categoryId) {
-        String term = name == null ? "" : name.trim();
-        List<ProviderEntity> providers = categoryId == null
-                ? providerRepository.findByNameContainingIgnoreCaseOrderByNameAsc(term)
-                : providerRepository.searchByNameAndCategory(term, categoryId);
-        return providers.stream().map(ProviderSummaryResponse::of).toList();
+    public List<ProviderSummaryResponse> search(String text, List<Long> categoryIds) {
+        String term = "%" + (text == null ? "" : text.trim().toLowerCase()) + "%";
+        boolean anyCategory = categoryIds == null || categoryIds.isEmpty();
+        return toSummaries(providerRepository.search(term, anyCategory, anyCategory ? List.of(0L) : categoryIds));
+    }
+
+    @Transactional(readOnly = true)
+    public ProviderSummaryResponse findSummaryById(Long id) {
+        return toSummaries(List.of(findById(id))).get(0);
+    }
+
+    private List<ProviderSummaryResponse> toSummaries(List<ProviderEntity> providers) {
+        if (providers.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = providers.stream().map(ProviderEntity::getId).toList();
+        Map<Long, BigDecimal> minPrices = productRepository.findMinActivePriceByProviderIds(ids).stream()
+                .collect(Collectors.toMap(ProviderMinPrice::providerId, ProviderMinPrice::minPrice));
+        Map<Long, List<String>> categories = productRepository.findActiveCategoryNamesByProviderIds(ids).stream()
+                .collect(Collectors.groupingBy(ProviderCategoryName::providerId,
+                        Collectors.mapping(ProviderCategoryName::categoryName, Collectors.toList())));
+        return providers.stream()
+                .map(provider -> ProviderSummaryResponse.of(provider, minPrices.get(provider.getId()),
+                        categories.getOrDefault(provider.getId(), List.of())))
+                .toList();
     }
 }

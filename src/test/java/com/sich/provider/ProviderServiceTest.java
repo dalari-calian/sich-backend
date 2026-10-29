@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.enums.UserType;
 import com.sich.common.exception.ResourceNotFoundException;
+import com.sich.product.ProductRepository;
+import com.sich.product.ProviderCategoryName;
+import com.sich.product.ProviderMinPrice;
 import com.sich.provider.dto.ProviderSummaryResponse;
 import com.sich.user.UserEntity;
 
@@ -27,6 +31,9 @@ class ProviderServiceTest {
 
     @Mock
     private ProviderRepository providerRepository;
+
+    @Mock
+    private ProductRepository productRepository;
 
     @InjectMocks
     private ProviderService providerService;
@@ -120,29 +127,55 @@ class ProviderServiceTest {
     }
 
     @Test
-    void search_shouldFilterOnlyByName_whenNoCategory() {
-        when(providerRepository.findByNameContainingIgnoreCaseOrderByNameAsc("ana"))
-                .thenReturn(List.of(provider(10L, "Ana Beatriz")));
+    void search_shouldReturnEachProviderWithMinPriceAndCategoriesUsingTwoQueries() {
+        when(providerRepository.search("%ana%", true, List.of(0L)))
+                .thenReturn(List.of(provider(10L, "Ana Beatriz"), provider(11L, "Ana Clara")));
+        when(productRepository.findMinActivePriceByProviderIds(List.of(10L, 11L)))
+                .thenReturn(List.of(new ProviderMinPrice(10L, new BigDecimal("95.00"))));
+        when(productRepository.findActiveCategoryNamesByProviderIds(List.of(10L, 11L))).thenReturn(List.of(
+                new ProviderCategoryName(10L, "Manicure"),
+                new ProviderCategoryName(10L, "Pedicure"),
+                new ProviderCategoryName(11L, "Manicure")));
 
-        List<ProviderSummaryResponse> result = providerService.search("  ana ", null);
+        List<ProviderSummaryResponse> result = providerService.search("  ANA ", null);
 
-        assertThat(result).containsExactly(new ProviderSummaryResponse(10L, "Ana Beatriz", "São Paulo", "SP", "Jardins"));
+        assertThat(result).containsExactly(
+                new ProviderSummaryResponse(10L, "Ana Beatriz", "São Paulo", "SP", "Jardins",
+                        new BigDecimal("95.00"), List.of("Manicure", "Pedicure")),
+                new ProviderSummaryResponse(11L, "Ana Clara", "São Paulo", "SP", "Jardins",
+                        null, List.of("Manicure")));
     }
 
     @Test
-    void search_shouldListAll_whenNameIsMissing() {
-        when(providerRepository.findByNameContainingIgnoreCaseOrderByNameAsc("")).thenReturn(List.of());
+    void search_shouldFilterByCategories_whenInformed() {
+        when(providerRepository.search("%%", false, List.of(3L, 4L))).thenReturn(List.of(provider(10L, "Ana Beatriz")));
+        when(productRepository.findMinActivePriceByProviderIds(List.of(10L))).thenReturn(List.of());
+        when(productRepository.findActiveCategoryNamesByProviderIds(List.of(10L))).thenReturn(List.of());
 
-        assertThat(providerService.search(null, null)).isEmpty();
+        List<ProviderSummaryResponse> result = providerService.search(null, List.of(3L, 4L));
+
+        assertThat(result).extracting(ProviderSummaryResponse::categories).containsExactly(List.of());
     }
 
     @Test
-    void search_shouldFilterByCategory_whenInformed() {
-        when(providerRepository.searchByNameAndCategory("", 3L)).thenReturn(List.of(provider(10L, "Ana Beatriz")));
+    void search_shouldReturnEmptyWithoutAggregating_whenNothingFound() {
+        when(providerRepository.search("%x%", true, List.of(0L))).thenReturn(List.of());
 
-        List<ProviderSummaryResponse> result = providerService.search(null, 3L);
+        assertThat(providerService.search("x", List.of())).isEmpty();
+        verify(productRepository, never()).findMinActivePriceByProviderIds(any());
+    }
 
-        assertThat(result).extracting(ProviderSummaryResponse::id).containsExactly(10L);
-        verify(providerRepository, never()).findByNameContainingIgnoreCaseOrderByNameAsc(any());
+    @Test
+    void findSummaryById_shouldReturnCardOfProvider() {
+        when(providerRepository.findById(10L)).thenReturn(Optional.of(provider(10L, "Ana Beatriz")));
+        when(productRepository.findMinActivePriceByProviderIds(List.of(10L)))
+                .thenReturn(List.of(new ProviderMinPrice(10L, new BigDecimal("50.00"))));
+        when(productRepository.findActiveCategoryNamesByProviderIds(List.of(10L)))
+                .thenReturn(List.of(new ProviderCategoryName(10L, "Manicure")));
+
+        ProviderSummaryResponse result = providerService.findSummaryById(10L);
+
+        assertThat(result.minPrice()).isEqualByComparingTo("50.00");
+        assertThat(result.categories()).containsExactly("Manicure");
     }
 }

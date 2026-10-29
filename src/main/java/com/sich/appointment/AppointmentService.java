@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -14,6 +16,7 @@ import org.springframework.util.StringUtils;
 import com.sich.appointment.dto.AppointmentResponse;
 import com.sich.appointment.dto.CustomerAppointmentRequest;
 import com.sich.appointment.dto.ProviderAppointmentRequest;
+import com.sich.common.dto.PageResponse;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.common.exception.ScheduleConflictException;
@@ -44,6 +47,9 @@ public class AppointmentService {
 
     /** Maior período (em dias) consultado de uma vez nas listagens da agenda. */
     public static final int MAX_LIST_DAYS = 92;
+
+    /** Maior página aceita nos históricos. */
+    public static final int MAX_PAGE_SIZE = 50;
 
     private final AppointmentRepository appointmentRepository;
     private final ProductService productService;
@@ -121,6 +127,37 @@ public class AppointmentService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public AppointmentResponse findByIdForProvider(Long id) {
+        return AppointmentResponse.of(appointmentRepository.findByIdAndProviderId(id, currentProvider().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado")));
+    }
+
+    @Transactional(readOnly = true)
+    public AppointmentResponse findByIdForCustomer(Long id) {
+        return AppointmentResponse.of(appointmentRepository.findByIdAndCustomerId(id, currentCustomer().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado")));
+    }
+
+    /** Agendamentos do prestador que já começaram (inclusive cancelados), do mais recente para o mais antigo. */
+    @Transactional(readOnly = true)
+    public PageResponse<AppointmentResponse> historyForProvider(int page, int size) {
+        return PageResponse.of(appointmentRepository.findByProviderIdAndStartAtLessThanOrderByStartAtDesc(
+                currentProvider().getId(), LocalDateTime.now(clock), pageable(page, size)), AppointmentResponse::of);
+    }
+
+    /** Agendamentos do cliente que já começaram (inclusive cancelados), do mais recente para o mais antigo. */
+    @Transactional(readOnly = true)
+    public PageResponse<AppointmentResponse> historyForCustomer(int page, int size) {
+        return PageResponse.of(appointmentRepository.findByCustomerIdAndStartAtLessThanOrderByStartAtDesc(
+                currentCustomer().getId(), LocalDateTime.now(clock), pageable(page, size)), AppointmentResponse::of);
+    }
+
+    /** Página a partir de 0 e tamanho entre 1 e {@value #MAX_PAGE_SIZE}. */
+    static Pageable pageable(int page, int size) {
+        return PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE));
+    }
+
     private AppointmentResponse book(AppointmentEntity appointment, List<Long> productIds) {
         Long providerId = appointment.getProvider().getId();
         List<ProductEntity> products = productService.findActiveForBooking(providerId, productIds);
@@ -184,7 +221,7 @@ public class AppointmentService {
         return AppointmentResponse.of(appointmentRepository.save(appointment));
     }
 
-    private static void validatePeriod(LocalDate from, LocalDate to) {
+    static void validatePeriod(LocalDate from, LocalDate to) {
         if (to.isBefore(from)) {
             throw new BusinessRuleException("A data final deve ser igual ou posterior à data inicial");
         }

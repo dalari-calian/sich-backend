@@ -1,5 +1,7 @@
 package com.sich.auth.dto;
 
+import java.time.Instant;
+
 import com.sich.admin.AdminEntity;
 import com.sich.common.enums.UserType;
 import com.sich.customer.CustomerEntity;
@@ -18,7 +20,8 @@ public record UserProfileResponse(
         String complementAdress,
         String neighborhood,
         String cep,
-        String numberAdress) {
+        String numberAdress,
+        Instant createdAt) {
 
     public static UserProfileResponse of(UserEntity user, CustomerEntity customer) {
         return new UserProfileResponse(
@@ -33,7 +36,8 @@ public record UserProfileResponse(
                 customer.getComplementAdress(),
                 customer.getNeighborhood(),
                 customer.getCep(),
-                customer.getNumberAdress());
+                customer.getNumberAdress(),
+                user.getCreatedAt());
     }
 
     public static UserProfileResponse of(UserEntity user, ProviderEntity provider) {
@@ -49,7 +53,8 @@ public record UserProfileResponse(
                 provider.getComplementAdress(),
                 provider.getNeighborhood(),
                 provider.getCep(),
-                provider.getNumberAdress());
+                provider.getNumberAdress(),
+                user.getCreatedAt());
     }
 
     public static UserProfileResponse of(UserEntity user, AdminEntity admin) {
@@ -57,6 +62,7 @@ public record UserProfileResponse(
                 user.getEmail(),
                 user.getUserType(),
                 admin.getName(),
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null,
+                user.getCreatedAt());
     }
 }

@@ -16,9 +16,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sich.appointment.dto.AgendaSummaryResponse;
 import com.sich.appointment.dto.AppointmentResponse;
 import com.sich.appointment.dto.AvailabilityResponse;
 import com.sich.appointment.dto.ProviderAppointmentRequest;
+import com.sich.common.dto.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +37,7 @@ public class ProviderAppointmentController {
 
     private final AppointmentService appointmentService;
     private final AvailabilityService availabilityService;
+    private final AppointmentSummaryService appointmentSummaryService;
 
     @GetMapping("/appointments")
     @Operation(summary = "Lista os agendamentos (inclusive cancelados) que começam entre as datas, por horário")
@@ -42,6 +45,29 @@ public class ProviderAppointmentController {
             @Parameter(description = "Data inicial (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @Parameter(description = "Data final, inclusive (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ResponseEntity.ok(appointmentService.findForProvider(from, to));
+    }
+
+    @GetMapping("/appointments/summary")
+    @Operation(summary = "Resumo da agenda entre as datas: confirmados, cancelados, minutos de expediente, agendados e livres, e receita prevista "
+            + "(cards da agenda, atendimentos de hoje e ocupação da semana)")
+    public ResponseEntity<AgendaSummaryResponse> summary(
+            @Parameter(description = "Data inicial (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "Data final, inclusive (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(appointmentSummaryService.forProvider(from, to));
+    }
+
+    @GetMapping("/appointments/history")
+    @Operation(summary = "Histórico paginado: agendamentos que já começaram, do mais recente para o mais antigo")
+    public ResponseEntity<PageResponse<AppointmentResponse>> history(
+            @Parameter(description = "Página, a partir de 0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (1 a 50)") @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(appointmentService.historyForProvider(page, size));
+    }
+
+    @GetMapping("/appointments/{id}")
+    @Operation(summary = "Detalhe de um agendamento da própria agenda")
+    public ResponseEntity<AppointmentResponse> findById(@Parameter(description = "Id do agendamento") @PathVariable Long id) {
+        return ResponseEntity.ok(appointmentService.findByIdForProvider(id));
     }
 
     @PostMapping("/appointments")

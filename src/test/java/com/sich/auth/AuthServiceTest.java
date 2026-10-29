@@ -165,7 +165,7 @@ class AuthServiceTest {
                 "john@doe.com", UserType.CUSTOMER,
                 "John Doe", "11999999999", "12345678900",
                 "São Paulo", "SP", "Rua A", "Apto 1",
-                "Centro", "01310100", "123"));
+                "Centro", "01310100", "123", null));
     }
 
     @Test
@@ -199,7 +199,7 @@ class AuthServiceTest {
                 "jane@doe.com", UserType.PROVIDER,
                 "Jane Doe", "11999999999", "12345678900",
                 "São Paulo", "SP", "Rua A", "Apto 1",
-                "Centro", "01310100", "123"));
+                "Centro", "01310100", "123", null));
     }
 
     @Test
@@ -223,6 +223,6 @@ class AuthServiceTest {
         verify(providerService, never()).findByUser(any());
         assertThat(response).isEqualTo(new UserProfileResponse(
                 "admin@sich.com", UserType.ADMIN, "Admin Sich",
-                null, null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null, null, null));
     }
 }

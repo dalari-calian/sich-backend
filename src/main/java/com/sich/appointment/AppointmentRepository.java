@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -47,6 +49,31 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
     @EntityGraph(attributePaths = { "items", "provider", "customer" })
     List<AppointmentEntity> findByCustomerIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
             Long customerId, LocalDateTime from, LocalDateTime to);
+
+    /** Um total por status dos agendamentos do prestador que começam em {@code [from, to)}. */
+    @Query("""
+            select new com.sich.appointment.AppointmentStatusTotals(a.status, count(a), sum(a.totalMinutes), sum(a.totalPrice))
+            from AppointmentEntity a
+            where a.provider.id = :providerId and a.startAt >= :from and a.startAt < :to
+            group by a.status""")
+    List<AppointmentStatusTotals> sumByStatus(@Param("providerId") Long providerId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    /** Histórico paginado; os itens vêm em lote pelo {@code @BatchSize} da coleção. */
+    @EntityGraph(attributePaths = { "provider", "customer" })
+    Page<AppointmentEntity> findByProviderIdAndStartAtLessThanOrderByStartAtDesc(Long providerId, LocalDateTime before,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = { "provider", "customer" })
+    Page<AppointmentEntity> findByCustomerIdAndStartAtLessThanOrderByStartAtDesc(Long customerId, LocalDateTime before,
+            Pageable pageable);
+
+    long countByCustomerIdAndStatusAndEndAtLessThanEqual(Long customerId, AppointmentStatus status, LocalDateTime now);
+
+    long countByCustomerIdAndStatusAndEndAtGreaterThan(Long customerId, AppointmentStatus status, LocalDateTime now);
+
+    long countByCustomerIdAndStatus(Long customerId, AppointmentStatus status);
 
     @EntityGraph(attributePaths = { "items", "provider", "customer" })
     Optional<AppointmentEntity> findByIdAndProviderId(Long id, Long providerId);

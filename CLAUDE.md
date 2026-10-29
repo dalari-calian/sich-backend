@@ -62,6 +62,10 @@ ou componentes de interface, que não é o caso, não precisa implementar.
 - **Disponibilidade** (`/providers/{id}/availability` e `/providers/me/availability`): calculada pela função pura `SlotCalculator` a partir do expediente, dos agendamentos `SCHEDULED` e de `TimeGrid.ceil(agora)`.
 - **Cancelamento**: `PATCH .../{id}/cancel` muda para `CANCELED` e grava `canceledat`/`canceledby`; não é permitido depois do início. Cancelado libera o horário.
 - A constraint de exclusão e as CHECKs ficam em `docs/sql/appointments-constraints.sql` (o Hibernate não as cria).
+- **Telas de resumo usam consultas agregadas**, nunca a lista completa: `GET /providers/me/appointments/summary?from&to` (confirmados, cancelados, minutos de expediente/agendados/livres e receita prevista; usado nos cards da agenda, "atendimentos de hoje" e "ocupação da semana") e `GET /customers/me/appointments/summary` (realizados, próximos, cancelados).
+- **Histórico** (`.../appointments/history?page&size`) é paginado (tamanho de 1 a 50), do mais recente para o mais antigo; os itens vêm em lote pelo `@BatchSize` da coleção, nunca com `fetch join` + paginação.
+- `AppointmentResponse` traz telefone e endereço do prestador e do cliente, para o card da agenda não precisar de outra consulta.
+- **Busca de prestadores** (`GET /providers?q&categoryIds`): só prestadores com produto ativo, pelo nome do prestador ou de um produto; o menor preço e as categorias de todos vêm em duas consultas (`ProductRepository.findMinActivePriceByProviderIds` e `findActiveCategoryNamesByProviderIds`), nunca uma por prestador.
 
 ## Diagrama do banco
 
