@@ -1,7 +1,9 @@
 package com.sich.product;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -11,6 +13,7 @@ import com.sich.category.CategoryService;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.common.util.DurationFormat;
+import com.sich.common.util.TimeGrid;
 import com.sich.product.dto.ProductImageResponse;
 import com.sich.product.dto.ProductRequest;
 import com.sich.product.dto.ProductResponse;
@@ -72,7 +75,42 @@ public class ProductService {
     /** Lista os produtos com as imagens, buscando as imagens de todos em uma única consulta. */
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() {
-        List<ProductEntity> products = productRepository.findByProviderIdOrderByNameAsc(currentProvider().getId());
+        return withImages(productRepository.findByProviderIdOrderByNameAsc(currentProvider().getId()));
+    }
+
+    /** Produtos ativos de um prestador, vistos por qualquer usuário autenticado (ex.: cliente agendando). */
+    @Transactional(readOnly = true)
+    public List<ProductResponse> findActiveByProvider(Long providerId) {
+        return withImages(productRepository.findByProviderIdAndActiveTrueOrderByNameAsc(providerId));
+    }
+
+    /**
+     * Produtos escolhidos para um agendamento, na ordem em que vieram. Todos precisam
+     * pertencer ao prestador (senão 404, como em {@link #findOwned}) e estar ativos.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductEntity> findActiveForBooking(Long providerId, List<Long> productIds) {
+        if (productIds.isEmpty()) {
+            throw new BusinessRuleException("Escolha ao menos um serviço");
+        }
+        if (new HashSet<>(productIds).size() != productIds.size()) {
+            throw new BusinessRuleException("O mesmo serviço não pode ser escolhido mais de uma vez");
+        }
+        Map<Long, ProductEntity> productsById = productRepository.findByIdInAndProviderId(productIds, providerId).stream()
+                .collect(Collectors.toMap(ProductEntity::getId, Function.identity()));
+        if (productsById.size() != productIds.size()) {
+            throw new ResourceNotFoundException("Produto não encontrado");
+        }
+        List<ProductEntity> products = productIds.stream().map(productsById::get).toList();
+        for (ProductEntity product : products) {
+            if (!product.isActive()) {
+                throw new BusinessRuleException("O serviço " + product.getName() + " está inativo");
+            }
+        }
+        return products;
+    }
+
+    private List<ProductResponse> withImages(List<ProductEntity> products) {
         if (products.isEmpty()) {
             return List.of();
         }
@@ -96,6 +134,9 @@ public class ProductService {
         int durationMinutes = DurationFormat.toMinutes(request.duration());
         if (durationMinutes == 0) {
             throw new BusinessRuleException("O tempo médio do serviço deve ser maior que 00:00");
+        }
+        if (!TimeGrid.isAligned(durationMinutes)) {
+            throw new BusinessRuleException("O tempo médio do serviço deve ser múltiplo de 15 minutos");
         }
         product.setCategory(categoryService.findEntityById(request.categoryId()));
         product.setName(request.name());

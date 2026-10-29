@@ -2,8 +2,10 @@ package com.sich.customer;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.sich.auth.dto.RegisterRequest;
+import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.user.UserEntity;
 
@@ -36,5 +38,25 @@ public class CustomerService {
     public CustomerEntity findByUser(UserEntity user) {
         return customerRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerEntity findById(Long id) {
+        return customerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+    }
+
+    /** Cliente com o email ou o telefone exatos; o email tem prioridade quando os dois vierem. */
+    @Transactional(readOnly = true)
+    public CustomerEntity lookup(String email, String phone) {
+        if (StringUtils.hasText(email)) {
+            return customerRepository.findByUserEmailIgnoreCase(email.trim())
+                    .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+        }
+        if (StringUtils.hasText(phone)) {
+            return customerRepository.findFirstByPhone(phone.trim())
+                    .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+        }
+        throw new BusinessRuleException("Informe o email ou o telefone do cliente");
     }
 }

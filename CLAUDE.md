@@ -50,6 +50,19 @@ ou componentes de interface, que não é o caso, não precisa implementar.
 - **Situação** (`active`): `true` = ativo, `false` = inativo. Nasce ativo; o prestador altera via `PATCH /providers/me/products/{id}/status`. O prestador continua vendo os inativos na própria lista.
 - **Fotos** (`productimages`): até **5 por produto**, cada uma salva como data URL base64 (`data:image/png|jpeg|webp;base64,...`, até 2 MB decodificados). Rotas em `/providers/me/products/{productId}/images` (adicionar, listar, remover). **Toda resposta de produto** (cadastrar, alterar, alterar situação, consultar e listar) traz o campo `images` com as fotos; na listagem, as fotos de todos os produtos são buscadas em uma única consulta (`findByProductIdInOrderByIdAsc`), nunca uma por produto. Ao excluir o produto, as fotos são apagadas em cascata (`ON DELETE CASCADE`).
 
+## Regras de negócio — Agenda (`providerworkinghours`, `appointments`, `appointmentitems`)
+
+- **Grade de 15 minutos**: expediente, início do agendamento e duração dos produtos são sempre múltiplos de 15 (`common/util/TimeGrid`). Produto com duração fora da grade retorna 422.
+- **Expediente** (`/providers/me/working-hours`, só PROVIDER): uma linha por intervalo de trabalho (`weekday` 1 = segunda ... 7 = domingo). O almoço é o espaço entre dois intervalos; dia sem linha é folga. O `PUT` substitui a semana inteira e não cancela agendamentos já marcados.
+- **Horários são hora local** (`LocalDateTime`, sem fuso). O "agora" vem do bean `Clock` (`app.timezone`, padrão `America/Sao_Paulo`); nos testes, use `Clock.fixed`.
+- **O backend calcula o fim**: a requisição traz só `startAt` e `productIds`; `endAt`, `totalMinutes` e `totalPrice` vêm dos produtos. Cada item copia nome, preço e duração do produto (histórico não muda; produto excluído vira `productid` nulo).
+- **Validações** ficam em `AppointmentService.book`, usado pelos dois fluxos: produtos do prestador e ativos (404/422), sem repetidos, início na grade, não no passado, até 60 dias à frente (`MAX_DAYS_AHEAD`), começa e termina no mesmo dia, sem sobrepor outro `SCHEDULED` do prestador (409, com a linha do prestador travada via `ProviderService.lockById`).
+- **Prestador** (`/providers/me/appointments`): agenda para cliente cadastrado (`customerId`, achado em `/providers/me/customers/lookup` por email ou telefone exatos, nunca por nome) ou sem cadastro (`customerName`). Pode agendar fora do expediente (encaixe).
+- **Cliente** (`/customers/me/appointments`): só dentro de um intervalo do expediente (422) e sem outro agendamento dele no mesmo horário (422). Vê também o que o prestador marcou para ele.
+- **Disponibilidade** (`/providers/{id}/availability` e `/providers/me/availability`): calculada pela função pura `SlotCalculator` a partir do expediente, dos agendamentos `SCHEDULED` e de `TimeGrid.ceil(agora)`.
+- **Cancelamento**: `PATCH .../{id}/cancel` muda para `CANCELED` e grava `canceledat`/`canceledby`; não é permitido depois do início. Cancelado libera o horário.
+- A constraint de exclusão e as CHECKs ficam em `docs/sql/appointments-constraints.sql` (o Hibernate não as cria).
+
 ## Diagrama do banco
 
 - O diagrama fica em `docs/database.puml` e deve ser atualizado sempre que uma tabela ou coluna for criada ou alterada.

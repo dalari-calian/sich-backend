@@ -9,12 +9,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.enums.UserType;
+import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
 import com.sich.user.UserEntity;
 
@@ -70,5 +72,58 @@ class CustomerServiceTest {
         assertThatThrownBy(() -> customerService.findByUser(user))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Cliente não encontrado");
+    }
+
+    @Test
+    void findById_shouldReturnCustomer_whenFound() {
+        CustomerEntity customer = new CustomerEntity();
+        when(customerRepository.findById(40L)).thenReturn(Optional.of(customer));
+
+        assertThat(customerService.findById(40L)).isSameAs(customer);
+    }
+
+    @Test
+    void findById_shouldThrow_whenNotFound() {
+        when(customerRepository.findById(40L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> customerService.findById(40L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Cliente não encontrado");
+    }
+
+    @Test
+    void lookup_shouldFindByEmailFirst() {
+        CustomerEntity customer = new CustomerEntity();
+        when(customerRepository.findByUserEmailIgnoreCase("julia@sich.com")).thenReturn(Optional.of(customer));
+
+        assertThat(customerService.lookup(" julia@sich.com ", "11999999999")).isSameAs(customer);
+        verify(customerRepository, never()).findFirstByPhone(any());
+    }
+
+    @Test
+    void lookup_shouldFindByPhone_whenEmailIsMissing() {
+        CustomerEntity customer = new CustomerEntity();
+        when(customerRepository.findFirstByPhone("11999999999")).thenReturn(Optional.of(customer));
+
+        assertThat(customerService.lookup(" ", "11999999999")).isSameAs(customer);
+    }
+
+    @Test
+    void lookup_shouldThrow_whenNoCustomerHasEmailOrPhone() {
+        when(customerRepository.findByUserEmailIgnoreCase("x@sich.com")).thenReturn(Optional.empty());
+        when(customerRepository.findFirstByPhone("000")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> customerService.lookup("x@sich.com", null))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Cliente não encontrado");
+        assertThatThrownBy(() -> customerService.lookup(null, "000"))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void lookup_shouldThrow_whenNeitherEmailNorPhoneIsInformed() {
+        assertThatThrownBy(() -> customerService.lookup(null, " "))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("Informe o email ou o telefone do cliente");
     }
 }

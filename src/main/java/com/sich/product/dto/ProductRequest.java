@@ -25,7 +25,7 @@ public record ProductRequest(
         @Schema(description = "Preço cobrado pelo prestador", example = "120.00")
         @NotNull @Positive @Digits(integer = 8, fraction = 2) BigDecimal price,
 
-        @Schema(description = "Tempo médio do serviço no formato HH:MM (máximo 99:59)", example = "01:30")
+        @Schema(description = "Tempo médio do serviço no formato HH:MM, múltiplo de 15 minutos (máximo 99:45)", example = "01:30")
         @NotBlank @Pattern(regexp = DurationFormat.PATTERN, message = "deve estar no formato HH:MM (ex.: 01:30)")
         String duration) {
 }

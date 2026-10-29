@@ -1,5 +1,6 @@
 package com.sich.product;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,6 +14,11 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
     @EntityGraph(attributePaths = "category")
     Optional<ProductEntity> findByIdAndProviderId(Long id, Long providerId);
+
+    @EntityGraph(attributePaths = "category")
+    List<ProductEntity> findByProviderIdAndActiveTrueOrderByNameAsc(Long providerId);
+
+    List<ProductEntity> findByIdInAndProviderId(Collection<Long> ids, Long providerId);
 
     boolean existsByCategoryId(Long categoryId);
 }

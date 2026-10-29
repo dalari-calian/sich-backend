@@ -124,6 +124,61 @@ table(productimages) {
   ON DELETE CASCADE (apaga com o produto)
 }
 
+table(providerworkinghours) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(providerid) : bigint NOT NULL
+  weekday : integer NOT NULL
+  starttime : time NOT NULL
+  endtime : time NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  um intervalo de trabalho por linha (almoço = espaço entre dois)
+  weekday: 1 = segunda ... 7 = domingo (java.time.DayOfWeek)
+  horários múltiplos de 15 min; CHECK endtime > starttime
+}
+
+table(appointments) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(providerid) : bigint NOT NULL
+  fk(customerid) : bigint NULL
+  customername : varchar(120) NULL
+  startat : timestamp NOT NULL
+  endat : timestamp NOT NULL
+  totalminutes : integer NOT NULL
+  totalprice : numeric(12,2) NOT NULL
+  notes : varchar(400) NULL
+  status : varchar(20) NOT NULL
+  origin : varchar(20) NOT NULL
+  canceledat : timestamptz NULL
+  canceledby : varchar(20) NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  startat/endat: hora local do prestador, período [startat, endat)
+  status: SCHEDULED | CANCELED; origin/canceledby: PROVIDER | CUSTOMER
+  customername só quando não há customerid (cliente sem cadastro)
+  EXCLUDE sem sobreposição por prestador (docs/sql/appointments-constraints.sql)
+}
+
+table(appointmentitems) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(appointmentid) : bigint NOT NULL
+  fk(productid) : bigint NULL
+  productname : varchar(120) NOT NULL
+  price : numeric(10,2) NOT NULL
+  durationminutes : integer NOT NULL
+  position : integer NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  cópia do produto no momento do agendamento
+  ON DELETE CASCADE (appointment); ON DELETE SET NULL (product)
+}
+
 ' --- Chaves estrangeiras ---------------------------------------------------
 ' Notação pé-de-galinha: ||  exatamente um | o| zero ou um | o{ zero ou muitos
 
@@ -133,6 +188,11 @@ users ||--o| admins : "admins.userid → users.id"
 providers ||--o{ products : "products.providerid → providers.id"
 categories ||--o{ products : "products.categoryid → categories.id"
 products ||--o{ productimages : "productimages.productid → products.id"
+providers ||--o{ providerworkinghours : "providerworkinghours.providerid → providers.id"
+providers ||--o{ appointments : "appointments.providerid → providers.id"
+customers |o--o{ appointments : "appointments.customerid → customers.id"
+appointments ||--|{ appointmentitems : "appointmentitems.appointmentid → appointments.id"
+products |o--o{ appointmentitems : "appointmentitems.productid → products.id"
 
 legend right
   <b><color:#B8860B>PK</color></b> chave primária

@@ -40,6 +40,13 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of(409, "Conflict", ex.getMessage()));
     }
 
+    @ExceptionHandler(ScheduleConflictException.class)
+    public ResponseEntity<ApiError> handleScheduleConflict(ScheduleConflictException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiError.of(409, "Conflict", ex.getMessage()));
+    }
+
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ApiError> handleBusinessRule(BusinessRuleException ex) {
         return ResponseEntity

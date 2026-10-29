@@ -145,10 +145,18 @@ class ProductServiceTest {
         when(categoryService.findEntityById(3L)).thenReturn(category);
         when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ProductResponse result = productService.create(request("99:59"));
+        ProductResponse result = productService.create(request("99:45"));
 
-        assertThat(result.durationMinutes()).isEqualTo(5999);
-        assertThat(result.duration()).isEqualTo("99:59");
+        assertThat(result.durationMinutes()).isEqualTo(5985);
+        assertThat(result.duration()).isEqualTo("99:45");
+    }
+
+    @Test
+    void create_shouldThrow_whenDurationIsNotMultipleOf15Minutes() {
+        assertThatThrownBy(() -> productService.create(request("01:10")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("O tempo médio do serviço deve ser múltiplo de 15 minutos");
+        verify(productRepository, never()).save(any());
     }
 
     @Test
