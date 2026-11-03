@@ -1,5 +1,6 @@
 package com.sich.common.util;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 /**
@@ -14,5 +15,19 @@ public record TimeRange(LocalDateTime start, LocalDateTime end) {
 
     public boolean contains(TimeRange other) {
         return !other.start.isBefore(start) && !other.end.isAfter(end);
+    }
+
+    public long minutes() {
+        return Duration.between(start, end).toMinutes();
+    }
+
+    /** Minutos em comum com {@code other} (0 quando não se sobrepõem). */
+    public long overlapMinutes(TimeRange other) {
+        if (!overlaps(other)) {
+            return 0;
+        }
+        LocalDateTime overlapStart = start.isAfter(other.start) ? start : other.start;
+        LocalDateTime overlapEnd = end.isBefore(other.end) ? end : other.end;
+        return Duration.between(overlapStart, overlapEnd).toMinutes();
     }
 }

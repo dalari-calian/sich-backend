@@ -27,6 +27,8 @@ import com.sich.product.ProductEntity;
 import com.sich.product.ProductService;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
+import com.sich.timeblock.TimeBlockEntity;
+import com.sich.timeblock.TimeBlockService;
 import com.sich.user.UserEntity;
 import com.sich.user.UserService;
 import com.sich.workinghours.WorkingHoursService;
@@ -54,6 +56,9 @@ class AvailabilityServiceTest {
     private ProviderService providerService;
 
     @Mock
+    private TimeBlockService timeBlockService;
+
+    @Mock
     private UserService userService;
 
     private AvailabilityService availabilityService;
@@ -63,7 +68,7 @@ class AvailabilityServiceTest {
     @BeforeEach
     void setUp() {
         availabilityService = new AvailabilityService(appointmentRepository, productService, workingHoursService,
-                providerService, userService, Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
+                providerService, timeBlockService, userService, Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
         provider = new ProviderEntity();
         provider.setId(10L);
     }
@@ -107,6 +112,23 @@ class AvailabilityServiceTest {
         assertThat(result.durationMinutes()).isEqualTo(90);
         assertThat(result.startTimes()).containsExactly(
                 "10:30", "15:00", "15:15", "15:30", "15:45", "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30");
+    }
+
+    @Test
+    void forProvider_shouldNotOfferStartsInsideBlocks() {
+        when(providerService.findById(10L)).thenReturn(provider);
+        productsLasting(30, 30);
+        when(workingHoursService.findIntervals(10L, TUESDAY))
+                .thenReturn(List.of(new TimeRange(TUESDAY.atTime(8, 0), TUESDAY.atTime(11, 0))));
+        TimeBlockEntity block = new TimeBlockEntity();
+        block.setStartAt(TUESDAY.atTime(8, 30));
+        block.setEndAt(TUESDAY.atTime(9, 30));
+        when(timeBlockService.findOverlapping(10L, TUESDAY.atStartOfDay(), TUESDAY.plusDays(1).atStartOfDay()))
+                .thenReturn(List.of(block));
+
+        AvailabilityResponse result = availabilityService.forProvider(10L, TUESDAY, PRODUCT_IDS);
+
+        assertThat(result.startTimes()).containsExactly("09:30", "09:45", "10:00");
     }
 
     @Test

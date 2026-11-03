@@ -33,4 +33,17 @@ class TimeRangeTest {
         assertThat(range(8, 0, 12, 0).contains(range(11, 0, 12, 30))).isFalse();
         assertThat(range(8, 0, 12, 0).contains(range(7, 45, 9, 0))).isFalse();
     }
+
+    @Test
+    void minutes_shouldReturnLength() {
+        assertThat(range(8, 0, 12, 30).minutes()).isEqualTo(270);
+    }
+
+    @Test
+    void overlapMinutes_shouldReturnSharedLength() {
+        assertThat(range(8, 0, 12, 0).overlapMinutes(range(11, 0, 13, 0))).isEqualTo(60);
+        assertThat(range(11, 0, 13, 0).overlapMinutes(range(8, 0, 12, 0))).isEqualTo(60);
+        assertThat(range(8, 0, 12, 0).overlapMinutes(range(9, 0, 9, 45))).isEqualTo(45);
+        assertThat(range(8, 0, 12, 0).overlapMinutes(range(12, 0, 13, 0))).isZero();
+    }
 }

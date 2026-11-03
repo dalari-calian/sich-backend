@@ -28,6 +28,7 @@ import com.sich.product.ProductEntity;
 import com.sich.product.ProductService;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
+import com.sich.timeblock.TimeBlockService;
 import com.sich.user.UserService;
 import com.sich.workinghours.WorkingHoursService;
 
@@ -56,13 +57,14 @@ public class AppointmentService {
     private final WorkingHoursService workingHoursService;
     private final ProviderService providerService;
     private final CustomerService customerService;
+    private final TimeBlockService timeBlockService;
     private final UserService userService;
     private final Clock clock;
 
     /**
      * O prestador reserva um horário na própria agenda para um cliente cadastrado
      * ({@code customerId}) ou sem cadastro ({@code customerName}). Pode ser fora do
-     * expediente (encaixe), mas nunca sobre outro agendamento.
+     * expediente (encaixe), mas nunca sobre outro agendamento ou bloqueio.
      */
     @Transactional
     public AppointmentResponse createByProvider(ProviderAppointmentRequest request) {
@@ -180,6 +182,9 @@ public class AppointmentService {
         if (appointmentRepository.existsProviderOverlap(providerId, AppointmentStatus.SCHEDULED, startAt, endAt)) {
             throw new ScheduleConflictException("Esse horário já está ocupado na agenda do prestador");
         }
+        if (timeBlockService.isBlocked(providerId, startAt, endAt)) {
+            throw new ScheduleConflictException("Esse horário está bloqueado na agenda do prestador");
+        }
         if (byCustomer && appointmentRepository.existsCustomerOverlap(appointment.getCustomer().getId(),
                 AppointmentStatus.SCHEDULED, startAt, endAt)) {
             throw new BusinessRuleException("Você já tem um agendamento nesse horário");
@@ -221,7 +226,7 @@ public class AppointmentService {
         return AppointmentResponse.of(appointmentRepository.save(appointment));
     }
 
-    static void validatePeriod(LocalDate from, LocalDate to) {
+    public static void validatePeriod(LocalDate from, LocalDate to) {
         if (to.isBefore(from)) {
             throw new BusinessRuleException("A data final deve ser igual ou posterior à data inicial");
         }

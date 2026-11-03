@@ -1,6 +1,5 @@
 package com.sich.workinghours;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Comparator;
@@ -73,16 +72,19 @@ public class WorkingHoursService {
                 .toList();
     }
 
-    /** Minutos de expediente do prestador somados dia a dia de {@code from} a {@code to} (inclusive). */
+    /**
+     * Intervalos de trabalho do prestador em cada dia de {@code from} a {@code to}
+     * (inclusive), em ordem de início, com uma única consulta ao banco.
+     */
     @Transactional(readOnly = true)
-    public long workingMinutesBetween(Long providerId, LocalDate from, LocalDate to) {
-        Map<Integer, Long> minutesByWeekday = workingHoursRepository.findByProviderIdOrderByWeekdayAscStartTimeAsc(providerId)
-                .stream()
-                .collect(Collectors.groupingBy(WorkingHoursEntity::getWeekday,
-                        Collectors.summingLong(interval -> Duration.between(interval.getStartTime(), interval.getEndTime()).toMinutes())));
+    public List<TimeRange> findIntervalsBetween(Long providerId, LocalDate from, LocalDate to) {
+        Map<Integer, List<WorkingHoursEntity>> byWeekday = workingHoursRepository
+                .findByProviderIdOrderByWeekdayAscStartTimeAsc(providerId).stream()
+                .collect(Collectors.groupingBy(WorkingHoursEntity::getWeekday));
         return from.datesUntil(to.plusDays(1))
-                .mapToLong(date -> minutesByWeekday.getOrDefault(date.getDayOfWeek().getValue(), 0L))
-                .sum();
+                .flatMap(date -> byWeekday.getOrDefault(date.getDayOfWeek().getValue(), List.of()).stream()
+                        .map(interval -> new TimeRange(date.atTime(interval.getStartTime()), date.atTime(interval.getEndTime()))))
+                .toList();
     }
 
     private WorkingHoursEntity toEntity(ProviderEntity provider, WorkingIntervalRequest request) {

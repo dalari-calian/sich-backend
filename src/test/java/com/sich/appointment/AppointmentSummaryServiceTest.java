@@ -23,10 +23,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.sich.appointment.dto.AgendaSummaryResponse;
 import com.sich.appointment.dto.CustomerAppointmentSummaryResponse;
 import com.sich.common.exception.BusinessRuleException;
+import com.sich.common.util.TimeRange;
 import com.sich.customer.CustomerEntity;
 import com.sich.customer.CustomerService;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
+import com.sich.timeblock.TimeBlockEntity;
+import com.sich.timeblock.TimeBlockService;
 import com.sich.user.UserEntity;
 import com.sich.user.UserService;
 import com.sich.workinghours.WorkingHoursService;
@@ -52,6 +55,9 @@ class AppointmentSummaryServiceTest {
     private CustomerService customerService;
 
     @Mock
+    private TimeBlockService timeBlockService;
+
+    @Mock
     private UserService userService;
 
     private AppointmentSummaryService summaryService;
@@ -61,7 +67,7 @@ class AppointmentSummaryServiceTest {
     @BeforeEach
     void setUp() {
         summaryService = new AppointmentSummaryService(appointmentRepository, workingHoursService, providerService,
-                customerService, userService, Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
+                customerService, timeBlockService, userService, Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
     }
 
     private void authenticatedAsProvider() {
@@ -71,18 +77,33 @@ class AppointmentSummaryServiceTest {
         when(providerService.findByUser(user)).thenReturn(provider);
     }
 
+    private static TimeBlockEntity block(LocalDateTime start, LocalDateTime end) {
+        TimeBlockEntity block = new TimeBlockEntity();
+        block.setStartAt(start);
+        block.setEndAt(end);
+        return block;
+    }
+
     @Test
-    void forProvider_shouldCombineTotalsByStatusWithWorkingMinutes() {
+    void forProvider_shouldCombineTotalsByStatusWithWorkingAndBlockedMinutes() {
         authenticatedAsProvider();
         when(appointmentRepository.sumByStatus(10L, MONDAY.atStartOfDay(), SUNDAY.plusDays(1).atStartOfDay())).thenReturn(List.of(
                 new AppointmentStatusTotals(AppointmentStatus.SCHEDULED, 6L, 540L, new BigDecimal("480.00")),
                 new AppointmentStatusTotals(AppointmentStatus.CANCELED, 1L, 60L, new BigDecimal("50.00"))));
-        when(workingHoursService.workingMinutesBetween(10L, MONDAY, SUNDAY)).thenReturn(3000L);
+        LocalDate tuesday = MONDAY.plusDays(1);
+        when(workingHoursService.findIntervalsBetween(10L, MONDAY, SUNDAY)).thenReturn(List.of(
+                new TimeRange(MONDAY.atTime(8, 0), MONDAY.atTime(12, 0)),
+                new TimeRange(MONDAY.atTime(13, 0), MONDAY.atTime(19, 0)),
+                new TimeRange(tuesday.atTime(8, 0), tuesday.atTime(12, 0))));
+        // Pega 11:00–12:00 do expediente (o almoço não conta) e 13:00–14:00; o outro fica todo fora do expediente.
+        when(timeBlockService.findOverlapping(10L, MONDAY.atStartOfDay(), SUNDAY.plusDays(1).atStartOfDay())).thenReturn(List.of(
+                block(MONDAY.atTime(11, 0), MONDAY.atTime(14, 0)),
+                block(tuesday.atTime(19, 0), tuesday.atTime(21, 0))));
 
         AgendaSummaryResponse result = summaryService.forProvider(MONDAY, SUNDAY);
 
         assertThat(result).isEqualTo(new AgendaSummaryResponse(
-                MONDAY, SUNDAY, 6, 1, 3000, 540, 2460, new BigDecimal("480.00")));
+                MONDAY, SUNDAY, 6, 1, 2, 840, 540, 120, 180, new BigDecimal("480.00")));
     }
 
     @Test
@@ -90,12 +111,14 @@ class AppointmentSummaryServiceTest {
         authenticatedAsProvider();
         when(appointmentRepository.sumByStatus(10L, MONDAY.atStartOfDay(), MONDAY.plusDays(1).atStartOfDay()))
                 .thenReturn(List.of());
-        when(workingHoursService.workingMinutesBetween(10L, MONDAY, MONDAY)).thenReturn(600L);
+        when(workingHoursService.findIntervalsBetween(10L, MONDAY, MONDAY))
+                .thenReturn(List.of(new TimeRange(MONDAY.atTime(8, 0), MONDAY.atTime(18, 0))));
 
         AgendaSummaryResponse result = summaryService.forProvider(MONDAY, MONDAY);
 
         assertThat(result.scheduledCount()).isZero();
         assertThat(result.canceledCount()).isZero();
+        assertThat(result.blockedCount()).isZero();
         assertThat(result.freeMinutes()).isEqualTo(600);
         assertThat(result.expectedRevenue()).isEqualByComparingTo("0");
     }
@@ -105,7 +128,7 @@ class AppointmentSummaryServiceTest {
         authenticatedAsProvider();
         when(appointmentRepository.sumByStatus(10L, MONDAY.atStartOfDay(), MONDAY.plusDays(1).atStartOfDay())).thenReturn(List.of(
                 new AppointmentStatusTotals(AppointmentStatus.SCHEDULED, 1L, 90L, new BigDecimal("80.00"))));
-        when(workingHoursService.workingMinutesBetween(10L, MONDAY, MONDAY)).thenReturn(0L);
+        when(workingHoursService.findIntervalsBetween(10L, MONDAY, MONDAY)).thenReturn(List.of());
 
         assertThat(summaryService.forProvider(MONDAY, MONDAY).freeMinutes()).isZero();
     }

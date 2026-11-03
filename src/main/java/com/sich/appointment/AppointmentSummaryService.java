@@ -11,8 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sich.appointment.dto.AgendaSummaryResponse;
 import com.sich.appointment.dto.CustomerAppointmentSummaryResponse;
+import com.sich.common.util.TimeRange;
 import com.sich.customer.CustomerService;
 import com.sich.provider.ProviderService;
+import com.sich.timeblock.TimeBlockService;
 import com.sich.user.UserService;
 import com.sich.workinghours.WorkingHoursService;
 
@@ -32,6 +34,7 @@ public class AppointmentSummaryService {
     private final WorkingHoursService workingHoursService;
     private final ProviderService providerService;
     private final CustomerService customerService;
+    private final TimeBlockService timeBlockService;
     private final UserService userService;
     private final Clock clock;
 
@@ -40,19 +43,30 @@ public class AppointmentSummaryService {
     public AgendaSummaryResponse forProvider(LocalDate from, LocalDate to) {
         AppointmentService.validatePeriod(from, to);
         Long providerId = providerService.findByUser(userService.getCurrentlyAuthenticatedUser()).getId();
-        List<AppointmentStatusTotals> totals = appointmentRepository.sumByStatus(providerId,
-                from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        LocalDateTime start = from.atStartOfDay();
+        LocalDateTime end = to.plusDays(1).atStartOfDay();
+        List<AppointmentStatusTotals> totals = appointmentRepository.sumByStatus(providerId, start, end);
         AppointmentStatusTotals scheduled = totalsOf(totals, AppointmentStatus.SCHEDULED);
         AppointmentStatusTotals canceled = totalsOf(totals, AppointmentStatus.CANCELED);
-        long workingMinutes = workingHoursService.workingMinutesBetween(providerId, from, to);
+        List<TimeRange> working = workingHoursService.findIntervalsBetween(providerId, from, to);
+        List<TimeRange> blocks = timeBlockService.findOverlapping(providerId, start, end).stream()
+                .map(block -> new TimeRange(block.getStartAt(), block.getEndAt()))
+                .toList();
+        long workingMinutes = working.stream().mapToLong(TimeRange::minutes).sum();
+        // Os bloqueios não se sobrepõem, então somar a interseção de cada um não conta minuto em dobro.
+        long blockedMinutes = working.stream()
+                .mapToLong(interval -> blocks.stream().mapToLong(interval::overlapMinutes).sum())
+                .sum();
         return new AgendaSummaryResponse(
                 from,
                 to,
                 scheduled.count(),
                 canceled.count(),
+                blocks.size(),
                 workingMinutes,
                 scheduled.minutes(),
-                Math.max(0, workingMinutes - scheduled.minutes()),
+                blockedMinutes,
+                Math.max(0, workingMinutes - scheduled.minutes() - blockedMinutes),
                 scheduled.revenue());
     }
 

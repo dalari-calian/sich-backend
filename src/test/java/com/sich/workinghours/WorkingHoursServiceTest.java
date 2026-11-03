@@ -160,17 +160,21 @@ class WorkingHoursServiceTest {
     }
 
     @Test
-    void workingMinutesBetween_shouldSumIntervalsOfEachDayInPeriod() {
+    void findIntervalsBetween_shouldRepeatWeekdayIntervalsOnEachDateInPeriod() {
         when(workingHoursRepository.findByProviderIdOrderByWeekdayAscStartTimeAsc(10L)).thenReturn(List.of(
                 interval(1, "08:00", "12:00"),
                 interval(1, "13:00", "19:00"),
                 interval(2, "09:00", "10:30")));
         LocalDate monday = LocalDate.of(2026, 10, 19);
+        LocalDate nextMonday = monday.plusDays(7);
 
-        assertThat(workingHoursService.workingMinutesBetween(10L, monday, monday)).isEqualTo(600);
-        assertThat(workingHoursService.workingMinutesBetween(10L, monday, monday.plusDays(6))).isEqualTo(690);
-        assertThat(workingHoursService.workingMinutesBetween(10L, monday, monday.plusDays(7))).isEqualTo(1290);
-        assertThat(workingHoursService.workingMinutesBetween(10L, monday.plusDays(2), monday.plusDays(6))).isZero();
+        assertThat(workingHoursService.findIntervalsBetween(10L, monday, nextMonday)).containsExactly(
+                new TimeRange(monday.atTime(8, 0), monday.atTime(12, 0)),
+                new TimeRange(monday.atTime(13, 0), monday.atTime(19, 0)),
+                new TimeRange(monday.plusDays(1).atTime(9, 0), monday.plusDays(1).atTime(10, 30)),
+                new TimeRange(nextMonday.atTime(8, 0), nextMonday.atTime(12, 0)),
+                new TimeRange(nextMonday.atTime(13, 0), nextMonday.atTime(19, 0)));
+        assertThat(workingHoursService.findIntervalsBetween(10L, monday.plusDays(2), monday.plusDays(6))).isEmpty();
     }
 
     @Test

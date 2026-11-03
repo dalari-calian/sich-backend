@@ -166,6 +166,18 @@ class ProviderServiceTest {
     }
 
     @Test
+    void findSummariesByIds_shouldKeepOrderOfIdsAndSkipMissingOnes() {
+        when(providerRepository.findAllById(List.of(11L, 99L, 10L)))
+                .thenReturn(List.of(provider(10L, "Ana Beatriz"), provider(11L, "Carla Souza")));
+        when(productRepository.findMinActivePriceByProviderIds(List.of(11L, 10L))).thenReturn(List.of());
+        when(productRepository.findActiveCategoryNamesByProviderIds(List.of(11L, 10L))).thenReturn(List.of());
+
+        assertThat(providerService.findSummariesByIds(List.of(11L, 99L, 10L)))
+                .extracting(ProviderSummaryResponse::id)
+                .containsExactly(11L, 10L);
+    }
+
+    @Test
     void findSummaryById_shouldReturnCardOfProvider() {
         when(providerRepository.findById(10L)).thenReturn(Optional.of(provider(10L, "Ana Beatriz")));
         when(productRepository.findMinActivePriceByProviderIds(List.of(10L)))

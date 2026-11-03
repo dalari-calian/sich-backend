@@ -1,5 +1,6 @@
 package com.sich.appointment;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +60,21 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
     List<AppointmentStatusTotals> sumByStatus(@Param("providerId") Long providerId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
+
+    /**
+     * Prestadores com produto ativo ordenados pela quantidade de agendamentos com o
+     * status criados desde {@code since} (mais agendados primeiro).
+     */
+    @Query("""
+            select new com.sich.appointment.ProviderAppointmentCount(a.provider.id, count(a))
+            from AppointmentEntity a
+            where a.status = :status and a.createdAt >= :since
+              and exists (select 1 from ProductEntity p where p.provider = a.provider and p.active = true)
+            group by a.provider.id
+            order by count(a) desc, a.provider.id""")
+    List<ProviderAppointmentCount> countByProviderSince(@Param("status") AppointmentStatus status,
+            @Param("since") Instant since,
+            Pageable pageable);
 
     /** Histórico paginado; os itens vêm em lote pelo {@code @BatchSize} da coleção. */
     @EntityGraph(attributePaths = { "provider", "customer" })

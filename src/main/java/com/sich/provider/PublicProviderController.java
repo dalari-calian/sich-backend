@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sich.appointment.AvailabilityService;
+import com.sich.appointment.TrendingProviderService;
 import com.sich.appointment.dto.AvailabilityResponse;
+import com.sich.appointment.dto.TrendingProviderResponse;
 import com.sich.product.ProductService;
 import com.sich.product.dto.ProductResponse;
 import com.sich.provider.dto.ProviderSummaryResponse;
@@ -32,6 +34,7 @@ public class PublicProviderController {
     private final ProviderService providerService;
     private final ProductService productService;
     private final AvailabilityService availabilityService;
+    private final TrendingProviderService trendingProviderService;
 
     @GetMapping
     @Operation(summary = "Busca prestadores com produto ativo pelo nome do prestador ou do produto e, opcionalmente, por categorias; "
@@ -40,6 +43,13 @@ public class PublicProviderController {
             @Parameter(description = "Parte do nome do prestador ou do produto") @RequestParam(required = false) String q,
             @Parameter(description = "Ids das categorias, separados por vírgula") @RequestParam(required = false) List<Long> categoryIds) {
         return ResponseEntity.ok(providerService.search(q, categoryIds));
+    }
+
+    @GetMapping("/trending")
+    @Operation(summary = "Profissionais em alta: prestadores com produto ativo que mais receberam agendamentos nos últimos 30 dias")
+    public ResponseEntity<List<TrendingProviderResponse>> trending(
+            @Parameter(description = "Quantidade (1 a 20)") @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(trendingProviderService.find(limit));
     }
 
     @GetMapping("/{providerId}")

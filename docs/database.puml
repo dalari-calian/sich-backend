@@ -139,6 +139,21 @@ table(providerworkinghours) {
   horários múltiplos de 15 min; CHECK endtime > starttime
 }
 
+table(providertimeblocks) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(providerid) : bigint NOT NULL
+  startat : timestamp NOT NULL
+  endat : timestamp NOT NULL
+  reason : varchar(200) NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  bloqueio da agenda (folga, compromisso, férias): período [startat, endat)
+  pode durar vários dias; ninguém agenda sobre ele
+  horários múltiplos de 15 min; CHECK endat > startat (docs/sql/timeblocks-constraints.sql)
+}
+
 table(appointments) {
   pk(id) : bigint identity NOT NULL
   --
@@ -189,7 +204,8 @@ providers ||--o{ products : "products.providerid → providers.id"
 categories ||--o{ products : "products.categoryid → categories.id"
 products ||--o{ productimages : "productimages.productid → products.id"
 providers ||--o{ providerworkinghours : "providerworkinghours.providerid → providers.id"
-providers ||--o{ appointments : "appointments.providerid → providers.id"
+providers ||--o{ providertimeblocks : "providertimeblocks.providerid → providers.id"
+providers ||--o{ appointments :"appointments.providerid → providers.id"
 customers |o--o{ appointments : "appointments.customerid → customers.id"
 appointments ||--|{ appointmentitems : "appointmentitems.appointmentid → appointments.id"
 products |o--o{ appointmentitems : "appointmentitems.productid → products.id"

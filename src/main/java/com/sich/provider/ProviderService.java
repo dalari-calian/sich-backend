@@ -79,6 +79,14 @@ public class ProviderService {
         return toSummaries(List.of(findById(id))).get(0);
     }
 
+    /** Cards dos prestadores na mesma ordem dos ids; ids inexistentes são ignorados. */
+    @Transactional(readOnly = true)
+    public List<ProviderSummaryResponse> findSummariesByIds(List<Long> ids) {
+        Map<Long, ProviderEntity> byId = providerRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(ProviderEntity::getId, provider -> provider));
+        return toSummaries(ids.stream().filter(byId::containsKey).map(byId::get).toList());
+    }
+
     private List<ProviderSummaryResponse> toSummaries(List<ProviderEntity> providers) {
         if (providers.isEmpty()) {
             return List.of();

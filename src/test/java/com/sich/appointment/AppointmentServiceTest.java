@@ -38,6 +38,7 @@ import com.sich.product.ProductEntity;
 import com.sich.product.ProductService;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
+import com.sich.timeblock.TimeBlockService;
 import com.sich.user.UserEntity;
 import com.sich.user.UserService;
 import com.sich.workinghours.WorkingHoursService;
@@ -67,6 +68,9 @@ class AppointmentServiceTest {
     private CustomerService customerService;
 
     @Mock
+    private TimeBlockService timeBlockService;
+
+    @Mock
     private UserService userService;
 
     private final Clock clock = Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE);
@@ -80,7 +84,7 @@ class AppointmentServiceTest {
     @BeforeEach
     void setUp() {
         appointmentService = new AppointmentService(appointmentRepository, productService, workingHoursService,
-                providerService, customerService, userService, clock);
+                providerService, customerService, timeBlockService, userService, clock);
         user = new UserEntity();
         user.setId(1L);
         provider = new ProviderEntity();
@@ -234,6 +238,20 @@ class AppointmentServiceTest {
         assertThatThrownBy(() -> appointmentService.createByProvider(providerRequest(TUESDAY.atTime(15, 0), 40L, null)))
                 .isInstanceOf(ScheduleConflictException.class)
                 .hasMessage("Esse horário já está ocupado na agenda do prestador");
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    void createByProvider_shouldThrowConflict_whenTimeIsBlocked() {
+        authenticatedAsProvider();
+        when(customerService.findById(40L)).thenReturn(customer);
+        productsFound();
+        providerHasNoConflict(TUESDAY.atTime(15, 0), TUESDAY.atTime(16, 30));
+        when(timeBlockService.isBlocked(10L, TUESDAY.atTime(15, 0), TUESDAY.atTime(16, 30))).thenReturn(true);
+
+        assertThatThrownBy(() -> appointmentService.createByProvider(providerRequest(TUESDAY.atTime(15, 0), 40L, null)))
+                .isInstanceOf(ScheduleConflictException.class)
+                .hasMessage("Esse horário está bloqueado na agenda do prestador");
         verify(appointmentRepository, never()).save(any());
     }
 

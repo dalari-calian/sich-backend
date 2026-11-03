@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sich.appointment.dto.AgendaDayResponse;
 import com.sich.appointment.dto.AgendaSummaryResponse;
 import com.sich.appointment.dto.AppointmentResponse;
 import com.sich.appointment.dto.AvailabilityResponse;
@@ -38,6 +39,7 @@ public class ProviderAppointmentController {
     private final AppointmentService appointmentService;
     private final AvailabilityService availabilityService;
     private final AppointmentSummaryService appointmentSummaryService;
+    private final AgendaService agendaService;
 
     @GetMapping("/appointments")
     @Operation(summary = "Lista os agendamentos (inclusive cancelados) que começam entre as datas, por horário")
@@ -47,9 +49,18 @@ public class ProviderAppointmentController {
         return ResponseEntity.ok(appointmentService.findForProvider(from, to));
     }
 
+    @GetMapping("/agenda")
+    @Operation(summary = "Grade da agenda entre as datas, um item por dia: expediente, pausas (ex.: almoço), bloqueios e agendamentos "
+            + "(visões de dia, semana e mês em uma única chamada)")
+    public ResponseEntity<List<AgendaDayResponse>> agenda(
+            @Parameter(description = "Data inicial (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "Data final, inclusive (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(agendaService.forProvider(from, to));
+    }
+
     @GetMapping("/appointments/summary")
     @Operation(summary = "Resumo da agenda entre as datas: confirmados, cancelados, minutos de expediente, agendados e livres, e receita prevista "
-            + "(cards da agenda, atendimentos de hoje e ocupação da semana)")
+            + "(cards da agenda, atendimentos de hoje e ocupação da semana, com bloqueios)")
     public ResponseEntity<AgendaSummaryResponse> summary(
             @Parameter(description = "Data inicial (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @Parameter(description = "Data final, inclusive (yyyy-MM-dd)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {

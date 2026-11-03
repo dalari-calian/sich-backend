@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import com.sich.common.util.TimeRange;
 import com.sich.product.ProductEntity;
 import com.sich.product.ProductService;
 import com.sich.provider.ProviderService;
+import com.sich.timeblock.TimeBlockService;
 import com.sich.user.UserService;
 import com.sich.workinghours.WorkingHoursService;
 
@@ -22,7 +24,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Horários de início livres de um prestador em uma data para os serviços escolhidos.
- * A duração vem dos produtos no banco, nunca da requisição.
+ * A duração vem dos produtos no banco, nunca da requisição. Agendamentos marcados e
+ * bloqueios ocupam o horário.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,6 +35,7 @@ public class AvailabilityService {
     private final ProductService productService;
     private final WorkingHoursService workingHoursService;
     private final ProviderService providerService;
+    private final TimeBlockService timeBlockService;
     private final UserService userService;
     private final Clock clock;
 
@@ -54,9 +58,14 @@ public class AvailabilityService {
         LocalDateTime now = LocalDateTime.now(clock);
         List<LocalDateTime> starts = List.of();
         if (!date.isBefore(now.toLocalDate()) && !date.isAfter(now.toLocalDate().plusDays(AppointmentService.MAX_DAYS_AHEAD))) {
-            List<TimeRange> busy = appointmentRepository.findProviderOverlapping(providerId, AppointmentStatus.SCHEDULED,
-                    date.atStartOfDay(), date.plusDays(1).atStartOfDay()).stream()
-                    .map(appointment -> new TimeRange(appointment.getStartAt(), appointment.getEndAt()))
+            LocalDateTime dayStart = date.atStartOfDay();
+            LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
+            List<TimeRange> busy = Stream.concat(
+                    appointmentRepository.findProviderOverlapping(providerId, AppointmentStatus.SCHEDULED, dayStart, dayEnd)
+                            .stream()
+                            .map(appointment -> new TimeRange(appointment.getStartAt(), appointment.getEndAt())),
+                    timeBlockService.findOverlapping(providerId, dayStart, dayEnd).stream()
+                            .map(block -> new TimeRange(block.getStartAt(), block.getEndAt())))
                     .toList();
             starts = SlotCalculator.availableStarts(workingHoursService.findIntervals(providerId, date), busy,
                     durationMinutes, TimeGrid.ceil(now));
