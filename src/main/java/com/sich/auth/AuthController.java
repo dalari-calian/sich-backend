@@ -12,6 +12,7 @@ import com.sich.auth.dto.AuthResponse;
 import com.sich.auth.dto.LoginRequest;
 import com.sich.auth.dto.RegisterRequest;
 import com.sich.auth.dto.UserProfileResponse;
+import com.sich.profile.ProfileService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -26,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final AuthService authService;
+    private final ProfileService profileService;
 
     @PostMapping("/register")
     @Operation(summary = "Cadastra um novo usuário e retorna o token de acesso")
@@ -44,8 +46,8 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Retorna as informações do usuário autenticado a partir do token enviado")
+    @Operation(summary = "Retorna as informações do usuário autenticado a partir do token enviado, com a foto de perfil (data URL) e a data de cadastro")
     public ResponseEntity<UserProfileResponse> getMe() {
-        return ResponseEntity.ok(authService.getMe());
+        return ResponseEntity.ok(profileService.getMe());
     }
 }

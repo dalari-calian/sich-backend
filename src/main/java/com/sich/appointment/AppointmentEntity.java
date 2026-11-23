@@ -65,6 +65,18 @@ public class AppointmentEntity extends AbstractEntity {
     @Column(name = "totalprice", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalPrice;
 
+    /** Desconto pago com o saldo de cashback do cliente (0 quando não usou). Valor a pagar = totalprice − cashbackused. */
+    @Column(name = "cashbackused", nullable = false, precision = 12, scale = 2, columnDefinition = "numeric(12,2) default 0")
+    private BigDecimal cashbackUsed = BigDecimal.ZERO;
+
+    /**
+     * Cashback que o cliente cadastrado ganha com este atendimento (calculado no
+     * agendamento sobre o valor a pagar). Entra no saldo quando o atendimento termina
+     * sem ser cancelado.
+     */
+    @Column(name = "cashbackearned", nullable = false, precision = 12, scale = 2, columnDefinition = "numeric(12,2) default 0")
+    private BigDecimal cashbackEarned = BigDecimal.ZERO;
+
     @Column(length = 400)
     private String notes;
 

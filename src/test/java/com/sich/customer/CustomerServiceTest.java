@@ -92,6 +92,23 @@ class CustomerServiceTest {
     }
 
     @Test
+    void lockById_shouldReturnLockedCustomer() {
+        CustomerEntity customer = new CustomerEntity();
+        when(customerRepository.findByIdForUpdate(40L)).thenReturn(Optional.of(customer));
+
+        assertThat(customerService.lockById(40L)).isSameAs(customer);
+    }
+
+    @Test
+    void lockById_shouldThrow_whenNotFound() {
+        when(customerRepository.findByIdForUpdate(40L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> customerService.lockById(40L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Cliente não encontrado");
+    }
+
+    @Test
     void lookup_shouldFindByEmailFirst() {
         CustomerEntity customer = new CustomerEntity();
         when(customerRepository.findByUserEmailIgnoreCase("julia@sich.com")).thenReturn(Optional.of(customer));

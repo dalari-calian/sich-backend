@@ -25,8 +25,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.enums.UserType;
+import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceAlreadyExistsException;
 import com.sich.common.exception.ResourceNotFoundException;
+import com.sich.profile.dto.PasswordChangeRequest;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -165,5 +167,47 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.getCurrentlyAuthenticatedUser())
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Usuário não autenticado");
+    }
+
+    private static UserEntity userWithPassword(String encoded) {
+        UserEntity user = new UserEntity();
+        user.setId(1L);
+        user.setPassword(encoded);
+        return user;
+    }
+
+    @Test
+    void changePassword_shouldSaveNewEncodedPassword_whenCurrentPasswordMatches() {
+        UserEntity user = userWithPassword("encoded-current");
+        when(passwordEncoder.matches("senhaAtual123", "encoded-current")).thenReturn(true);
+        when(passwordEncoder.matches("novaSenha456", "encoded-current")).thenReturn(false);
+        when(passwordEncoder.encode("novaSenha456")).thenReturn("encoded-new");
+
+        userService.changePassword(user, new PasswordChangeRequest("senhaAtual123", "novaSenha456"));
+
+        assertThat(user.getPassword()).isEqualTo("encoded-new");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void changePassword_shouldReject_whenCurrentPasswordIsWrong() {
+        UserEntity user = userWithPassword("encoded-current");
+        when(passwordEncoder.matches("errada", "encoded-current")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(user, new PasswordChangeRequest("errada", "novaSenha456")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("A senha atual está incorreta");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changePassword_shouldReject_whenNewPasswordIsTheSameAsCurrent() {
+        UserEntity user = userWithPassword("encoded-current");
+        when(passwordEncoder.matches("senhaAtual123", "encoded-current")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.changePassword(user, new PasswordChangeRequest("senhaAtual123", "senhaAtual123")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage("A nova senha deve ser diferente da atual");
+        verify(userRepository, never()).save(any());
     }
 }

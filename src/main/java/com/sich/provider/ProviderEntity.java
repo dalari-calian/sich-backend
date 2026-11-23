@@ -1,6 +1,7 @@
 package com.sich.provider;
 
 import com.sich.common.base.AbstractEntity;
+import com.sich.common.base.PersonalData;
 import com.sich.user.UserEntity;
 
 import jakarta.persistence.Column;
@@ -16,7 +17,7 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "providers")
-public class ProviderEntity extends AbstractEntity {
+public class ProviderEntity extends AbstractEntity implements PersonalData {
 
     @Column(nullable = false)
     private String name;

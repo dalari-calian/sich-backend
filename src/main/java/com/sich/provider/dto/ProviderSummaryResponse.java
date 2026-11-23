@@ -6,8 +6,11 @@ import java.util.List;
 import com.sich.provider.ProviderEntity;
 
 /**
- * Card do prestador na busca e no perfil: {@code minPrice} é o menor preço entre os
- * produtos ativos ("a partir de") e {@code categories} as categorias em que ele atende.
+ * Card do prestador na busca, nos favoritos e no perfil: {@code minPrice} é o menor
+ * preço entre os produtos ativos ("a partir de"), {@code categories} as categorias em
+ * que ele atende, {@code photo} a foto de perfil (data URL, ou nulo) e
+ * {@code favorite} se o cliente autenticado o favoritou (sempre {@code false} para
+ * quem não é cliente).
  */
 public record ProviderSummaryResponse(
         Long id,
@@ -16,9 +19,12 @@ public record ProviderSummaryResponse(
         String state,
         String neighborhood,
         BigDecimal minPrice,
-        List<String> categories) {
+        List<String> categories,
+        String photo,
+        boolean favorite) {
 
-    public static ProviderSummaryResponse of(ProviderEntity provider, BigDecimal minPrice, List<String> categories) {
+    public static ProviderSummaryResponse of(ProviderEntity provider, BigDecimal minPrice, List<String> categories,
+            String photo, boolean favorite) {
         return new ProviderSummaryResponse(
                 provider.getId(),
                 provider.getName(),
@@ -26,6 +32,8 @@ public record ProviderSummaryResponse(
                 provider.getState(),
                 provider.getNeighborhood(),
                 minPrice,
-                categories);
+                categories,
+                photo,
+                favorite);
     }
 }

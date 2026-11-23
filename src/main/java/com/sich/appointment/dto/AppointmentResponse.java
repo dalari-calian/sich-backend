@@ -16,7 +16,9 @@ import com.sich.provider.ProviderEntity;
 /**
  * Agendamento como visto pelo prestador e pelo cliente. Telefone e endereço da outra
  * parte vêm junto para o card da agenda não precisar de outra consulta; para cliente
- * sem cadastro eles são nulos.
+ * sem cadastro eles são nulos. {@code amountToPay} é o total menos o desconto pago com
+ * cashback ({@code cashbackUsed}); {@code cashbackEarned} é o cashback que o cliente ganha
+ * quando o atendimento terminar. As fotos são data URL (ou nulas, sem foto).
  */
 public record AppointmentResponse(
         Long id,
@@ -25,16 +27,21 @@ public record AppointmentResponse(
         String duration,
         Integer durationMinutes,
         BigDecimal totalPrice,
+        BigDecimal cashbackUsed,
+        BigDecimal amountToPay,
+        BigDecimal cashbackEarned,
         AppointmentStatus status,
         AppointmentOrigin origin,
         String notes,
         Long providerId,
         String providerName,
         String providerPhone,
+        String providerPhoto,
         AddressResponse providerAddress,
         Long customerId,
         String customerName,
         String customerPhone,
+        String customerPhoto,
         AddressResponse customerAddress,
         List<AppointmentItemResponse> items,
         Instant canceledAt,
@@ -42,7 +49,7 @@ public record AppointmentResponse(
         Instant createdAt) {
 
     /** {@code customerName} é o nome do cliente cadastrado ou, sem cadastro, o nome digitado pelo prestador. */
-    public static AppointmentResponse of(AppointmentEntity appointment) {
+    public static AppointmentResponse of(AppointmentEntity appointment, String providerPhoto, String customerPhoto) {
         ProviderEntity provider = appointment.getProvider();
         CustomerEntity customer = appointment.getCustomer();
         return new AppointmentResponse(
@@ -52,16 +59,21 @@ public record AppointmentResponse(
                 DurationFormat.format(appointment.getTotalMinutes()),
                 appointment.getTotalMinutes(),
                 appointment.getTotalPrice(),
+                appointment.getCashbackUsed(),
+                appointment.getTotalPrice().subtract(appointment.getCashbackUsed()),
+                appointment.getCashbackEarned(),
                 appointment.getStatus(),
                 appointment.getOrigin(),
                 appointment.getNotes(),
                 provider.getId(),
                 provider.getName(),
                 provider.getPhone(),
+                providerPhoto,
                 AddressResponse.of(provider),
                 customer == null ? null : customer.getId(),
                 customer == null ? appointment.getCustomerName() : customer.getName(),
                 customer == null ? null : customer.getPhone(),
+                customer == null ? null : customerPhoto,
                 customer == null ? null : AddressResponse.of(customer),
                 appointment.getItems().stream().map(AppointmentItemResponse::of).toList(),
                 appointment.getCanceledAt(),

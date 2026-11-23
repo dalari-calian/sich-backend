@@ -12,9 +12,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -22,6 +22,7 @@ import com.sich.appointment.dto.AgendaDayResponse;
 import com.sich.appointment.dto.AgendaIntervalResponse;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.util.TimeRange;
+import com.sich.profile.UserPhotoService;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
 import com.sich.timeblock.TimeBlockEntity;
@@ -53,8 +54,16 @@ class AgendaServiceTest {
     @Mock
     private UserService userService;
 
-    @InjectMocks
+    @Mock
+    private UserPhotoService userPhotoService;
+
     private AgendaService agendaService;
+
+    @BeforeEach
+    void setUp() {
+        agendaService = new AgendaService(appointmentRepository, workingHoursService, timeBlockService, providerService,
+                userService, new AppointmentMapper(userPhotoService));
+    }
 
     private final ProviderEntity provider = new ProviderEntity();
 

@@ -16,6 +16,7 @@ import org.springframework.util.StringUtils;
 import com.sich.appointment.dto.AppointmentResponse;
 import com.sich.appointment.dto.CustomerAppointmentRequest;
 import com.sich.appointment.dto.ProviderAppointmentRequest;
+import com.sich.benefit.BenefitService;
 import com.sich.common.dto.PageResponse;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
@@ -59,6 +60,8 @@ public class AppointmentService {
     private final CustomerService customerService;
     private final TimeBlockService timeBlockService;
     private final UserService userService;
+    private final BenefitService benefitService;
+    private final AppointmentMapper appointmentMapper;
     private final Clock clock;
 
     /**
@@ -80,7 +83,7 @@ public class AppointmentService {
         }
         appointment.setStartAt(request.startAt());
         appointment.setNotes(normalizeNotes(request.notes()));
-        return book(appointment, request.productIds());
+        return book(appointment, request.productIds(), false);
     }
 
     /** O cliente autenticado reserva um horário dentro do expediente do prestador. */
@@ -92,7 +95,7 @@ public class AppointmentService {
         appointment.setOrigin(AppointmentOrigin.CUSTOMER);
         appointment.setStartAt(request.startAt());
         appointment.setNotes(normalizeNotes(request.notes()));
-        return book(appointment, request.productIds());
+        return book(appointment, request.productIds(), Boolean.TRUE.equals(request.useCashback()));
     }
 
     @Transactional
@@ -113,46 +116,42 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> findForProvider(LocalDate from, LocalDate to) {
         validatePeriod(from, to);
-        return appointmentRepository.findByProviderIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
-                currentProvider().getId(), from.atStartOfDay(), to.plusDays(1).atStartOfDay()).stream()
-                .map(AppointmentResponse::of)
-                .toList();
+        return appointmentMapper.toResponses(appointmentRepository.findByProviderIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
+                currentProvider().getId(), from.atStartOfDay(), to.plusDays(1).atStartOfDay()));
     }
 
     /** Agenda do cliente autenticado (inclusive o que o prestador marcou para ele), dos dias {@code from} a {@code to}. */
     @Transactional(readOnly = true)
     public List<AppointmentResponse> findForCustomer(LocalDate from, LocalDate to) {
         validatePeriod(from, to);
-        return appointmentRepository.findByCustomerIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
-                currentCustomer().getId(), from.atStartOfDay(), to.plusDays(1).atStartOfDay()).stream()
-                .map(AppointmentResponse::of)
-                .toList();
+        return appointmentMapper.toResponses(appointmentRepository.findByCustomerIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
+                currentCustomer().getId(), from.atStartOfDay(), to.plusDays(1).atStartOfDay()));
     }
 
     @Transactional(readOnly = true)
     public AppointmentResponse findByIdForProvider(Long id) {
-        return AppointmentResponse.of(appointmentRepository.findByIdAndProviderId(id, currentProvider().getId())
+        return appointmentMapper.toResponse(appointmentRepository.findByIdAndProviderId(id, currentProvider().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado")));
     }
 
     @Transactional(readOnly = true)
     public AppointmentResponse findByIdForCustomer(Long id) {
-        return AppointmentResponse.of(appointmentRepository.findByIdAndCustomerId(id, currentCustomer().getId())
+        return appointmentMapper.toResponse(appointmentRepository.findByIdAndCustomerId(id, currentCustomer().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado")));
     }
 
     /** Agendamentos do prestador que já começaram (inclusive cancelados), do mais recente para o mais antigo. */
     @Transactional(readOnly = true)
     public PageResponse<AppointmentResponse> historyForProvider(int page, int size) {
-        return PageResponse.of(appointmentRepository.findByProviderIdAndStartAtLessThanOrderByStartAtDesc(
-                currentProvider().getId(), LocalDateTime.now(clock), pageable(page, size)), AppointmentResponse::of);
+        return appointmentMapper.toPage(appointmentRepository.findByProviderIdAndStartAtLessThanOrderByStartAtDesc(
+                currentProvider().getId(), LocalDateTime.now(clock), pageable(page, size)));
     }
 
     /** Agendamentos do cliente que já começaram (inclusive cancelados), do mais recente para o mais antigo. */
     @Transactional(readOnly = true)
     public PageResponse<AppointmentResponse> historyForCustomer(int page, int size) {
-        return PageResponse.of(appointmentRepository.findByCustomerIdAndStartAtLessThanOrderByStartAtDesc(
-                currentCustomer().getId(), LocalDateTime.now(clock), pageable(page, size)), AppointmentResponse::of);
+        return appointmentMapper.toPage(appointmentRepository.findByCustomerIdAndStartAtLessThanOrderByStartAtDesc(
+                currentCustomer().getId(), LocalDateTime.now(clock), pageable(page, size)));
     }
 
     /** Página a partir de 0 e tamanho entre 1 e {@value #MAX_PAGE_SIZE}. */
@@ -160,7 +159,26 @@ public class AppointmentService {
         return PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE));
     }
 
-    private AppointmentResponse book(AppointmentEntity appointment, List<Long> productIds) {
+    /**
+     * Desconto com o saldo de cashback (só quando pedido, até o limite por agendamento)
+     * e cashback que o cliente cadastrado vai ganhar sobre o valor a pagar. O cliente
+     * fica travado para dois agendamentos simultâneos não gastarem o mesmo saldo.
+     */
+    private void applyCashback(AppointmentEntity appointment, BigDecimal totalPrice, boolean useCashback) {
+        CustomerEntity customer = appointment.getCustomer();
+        if (customer == null) {
+            return;
+        }
+        BigDecimal used = BigDecimal.ZERO;
+        if (useCashback) {
+            customerService.lockById(customer.getId());
+            used = benefitService.availableBalance(customer.getId()).min(benefitService.maxUsable(totalPrice));
+        }
+        appointment.setCashbackUsed(used);
+        appointment.setCashbackEarned(benefitService.earnedOn(totalPrice.subtract(used)));
+    }
+
+    private AppointmentResponse book(AppointmentEntity appointment, List<Long> productIds, boolean useCashback) {
         Long providerId = appointment.getProvider().getId();
         List<ProductEntity> products = productService.findActiveForBooking(providerId, productIds);
         LocalDateTime startAt = appointment.getStartAt();
@@ -190,14 +208,16 @@ public class AppointmentService {
             throw new BusinessRuleException("Você já tem um agendamento nesse horário");
         }
 
+        BigDecimal totalPrice = products.stream().map(ProductEntity::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
         appointment.setEndAt(endAt);
         appointment.setTotalMinutes(totalMinutes);
-        appointment.setTotalPrice(products.stream().map(ProductEntity::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add));
+        appointment.setTotalPrice(totalPrice);
+        applyCashback(appointment, totalPrice, useCashback);
         appointment.setStatus(AppointmentStatus.SCHEDULED);
         for (int position = 0; position < products.size(); position++) {
             appointment.getItems().add(item(appointment, products.get(position), position));
         }
-        return AppointmentResponse.of(appointmentRepository.save(appointment));
+        return appointmentMapper.toResponse(appointmentRepository.save(appointment));
     }
 
     private void validateStart(LocalDateTime startAt) {
@@ -223,7 +243,7 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.CANCELED);
         appointment.setCanceledAt(clock.instant());
         appointment.setCanceledBy(canceledBy);
-        return AppointmentResponse.of(appointmentRepository.save(appointment));
+        return appointmentMapper.toResponse(appointmentRepository.save(appointment));
     }
 
     public static void validatePeriod(LocalDate from, LocalDate to) {

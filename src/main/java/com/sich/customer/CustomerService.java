@@ -46,6 +46,13 @@ public class CustomerService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
     }
 
+    /** Trava o cliente até o fim da transação corrente (deve ser chamado dentro de uma transação de escrita). */
+    @Transactional
+    public CustomerEntity lockById(Long id) {
+        return customerRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+    }
+
     /** Cliente com o email ou o telefone exatos; o email tem prioridade quando os dois vierem. */
     @Transactional(readOnly = true)
     public CustomerEntity lookup(String email, String phone) {

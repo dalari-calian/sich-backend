@@ -1,20 +1,26 @@
 package com.sich.provider;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sich.auth.dto.RegisterRequest;
+import com.sich.common.enums.UserType;
 import com.sich.common.exception.ResourceNotFoundException;
+import com.sich.favorite.FavoriteProviderRepository;
 import com.sich.product.ProductRepository;
 import com.sich.product.ProviderCategoryName;
 import com.sich.product.ProviderMinPrice;
+import com.sich.profile.UserPhotoService;
 import com.sich.provider.dto.ProviderSummaryResponse;
 import com.sich.user.UserEntity;
+import com.sich.user.UserService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +30,9 @@ public class ProviderService {
 
     private final ProviderRepository providerRepository;
     private final ProductRepository productRepository;
+    private final UserPhotoService userPhotoService;
+    private final FavoriteProviderRepository favoriteProviderRepository;
+    private final UserService userService;
 
     @Transactional
     public ProviderEntity create(UserEntity user, RegisterRequest request) {
@@ -64,8 +73,8 @@ public class ProviderService {
     /**
      * Busca prestadores com produto ativo pelo nome do prestador ou de um produto
      * (parcial, sem diferenciar maiúsculas) e, opcionalmente, por categorias. O menor
-     * preço e as categorias de todos os encontrados vêm em duas consultas, nunca uma
-     * por prestador.
+     * preço, as categorias, as fotos e os favoritos de todos os encontrados vêm em uma
+     * consulta cada, nunca uma por prestador.
      */
     @Transactional(readOnly = true)
     public List<ProviderSummaryResponse> search(String text, List<Long> categoryIds) {
@@ -97,9 +106,21 @@ public class ProviderService {
         Map<Long, List<String>> categories = productRepository.findActiveCategoryNamesByProviderIds(ids).stream()
                 .collect(Collectors.groupingBy(ProviderCategoryName::providerId,
                         Collectors.mapping(ProviderCategoryName::categoryName, Collectors.toList())));
+        Map<Long, String> photos = userPhotoService.findByProviderIds(ids);
+        Set<Long> favorites = favoriteIdsOfCurrentCustomer(ids);
         return providers.stream()
                 .map(provider -> ProviderSummaryResponse.of(provider, minPrices.get(provider.getId()),
-                        categories.getOrDefault(provider.getId(), List.of())))
+                        categories.getOrDefault(provider.getId(), List.of()), photos.get(provider.getId()),
+                        favorites.contains(provider.getId())))
                 .toList();
+    }
+
+    /** Quais dos prestadores o cliente autenticado favoritou; vazio para quem não é cliente. */
+    private Set<Long> favoriteIdsOfCurrentCustomer(List<Long> providerIds) {
+        UserEntity user = userService.getCurrentlyAuthenticatedUser();
+        if (user.getUserType() != UserType.CUSTOMER) {
+            return Set.of();
+        }
+        return new HashSet<>(favoriteProviderRepository.findFavoriteProviderIds(user.getId(), providerIds));
     }
 }
