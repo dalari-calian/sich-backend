@@ -4,11 +4,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sich.benefit.dto.CashbackMovementResponse;
 import com.sich.benefit.dto.CustomerBenefitsResponse;
+import com.sich.common.dto.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -27,5 +31,15 @@ public class BenefitController {
             + "regras (percentual de cashback e limite de uso por agendamento) e progresso do cartão fidelidade (ex.: 3/5)")
     public ResponseEntity<CustomerBenefitsResponse> find() {
         return ResponseEntity.ok(benefitService.forCustomer());
+    }
+
+    @GetMapping("/history")
+    @Operation(summary = "Extrato paginado da carteira: agendamentos que geraram ou usaram cashback, do mais recente para o mais antigo, "
+            + "com a situação (CREDITED = já no saldo, PENDING = entra quando o atendimento terminar, CANCELED = não entra e o "
+            + "desconto voltou). Os bônus do cartão fidelidade estão em loyalty.bonusEarnedTotal")
+    public ResponseEntity<PageResponse<CashbackMovementResponse>> history(
+            @Parameter(description = "Página, a partir de 0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (1 a 50)") @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(benefitService.history(page, size));
     }
 }

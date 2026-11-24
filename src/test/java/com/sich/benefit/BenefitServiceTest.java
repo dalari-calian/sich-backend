@@ -7,18 +7,25 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
+import com.sich.appointment.AppointmentEntity;
 import com.sich.appointment.AppointmentRepository;
 import com.sich.appointment.AppointmentStatus;
+import com.sich.benefit.dto.CashbackMovementResponse;
 import com.sich.benefit.dto.CustomerBenefitsResponse;
+import com.sich.common.dto.PageResponse;
 import com.sich.customer.CustomerEntity;
 import com.sich.customer.CustomerService;
+import com.sich.provider.ProviderEntity;
 import com.sich.user.UserEntity;
 import com.sich.user.UserService;
 
@@ -113,6 +120,50 @@ class BenefitServiceTest {
 
         assertThat(result.loyalty().goal()).isEqualTo(1);
         assertThat(result.loyalty().completedCards()).isEqualTo(2);
+    }
+
+    private static AppointmentEntity movement(Long id, LocalDateTime start, AppointmentStatus status, String used, String earned) {
+        ProviderEntity provider = new ProviderEntity();
+        provider.setId(10L);
+        provider.setName("Ana Beatriz");
+        AppointmentEntity appointment = new AppointmentEntity();
+        appointment.setId(id);
+        appointment.setProvider(provider);
+        appointment.setStartAt(start);
+        appointment.setEndAt(start.plusHours(1));
+        appointment.setTotalPrice(new BigDecimal("80.00"));
+        appointment.setCashbackUsed(new BigDecimal(used));
+        appointment.setCashbackEarned(new BigDecimal(earned));
+        appointment.setStatus(status);
+        return appointment;
+    }
+
+    @Test
+    void history_shouldListMovementsWithTheirSituation() {
+        authenticatedAsCustomer();
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(appointmentRepository.findCashbackMovements(40L, pageable)).thenReturn(new PageImpl<>(List.of(
+                movement(3L, NOW.plusDays(1), SCHEDULED, "16.00", "3.20"),
+                movement(2L, NOW.minusMinutes(30), SCHEDULED, "0", "4.00"),
+                movement(1L, NOW.minusDays(2), SCHEDULED, "0", "4.00"),
+                movement(4L, NOW.plusDays(2), AppointmentStatus.CANCELED, "5.00", "3.75")), pageable, 4));
+
+        PageResponse<CashbackMovementResponse> result = benefitService.history(0, 20);
+
+        assertThat(result.totalElements()).isEqualTo(4);
+        assertThat(result.content()).extracting(CashbackMovementResponse::status).containsExactly(
+                CashbackStatus.PENDING, CashbackStatus.PENDING, CashbackStatus.CREDITED, CashbackStatus.CANCELED);
+        assertThat(result.content().get(0)).isEqualTo(new CashbackMovementResponse(3L, NOW.plusDays(1), 10L, "Ana Beatriz",
+                new BigDecimal("80.00"), new BigDecimal("16.00"), new BigDecimal("3.20"), CashbackStatus.PENDING));
+    }
+
+    @Test
+    void history_shouldClampPageAndSize() {
+        authenticatedAsCustomer();
+        PageRequest pageable = PageRequest.of(0, 50);
+        when(appointmentRepository.findCashbackMovements(40L, pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        assertThat(benefitService.history(-1, 500).content()).isEmpty();
     }
 
     @Test

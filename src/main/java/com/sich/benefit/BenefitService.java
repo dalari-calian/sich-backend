@@ -5,13 +5,19 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sich.appointment.AppointmentEntity;
 import com.sich.appointment.AppointmentRepository;
+import com.sich.appointment.AppointmentService;
 import com.sich.appointment.AppointmentStatus;
+import com.sich.benefit.dto.CashbackMovementResponse;
 import com.sich.benefit.dto.CustomerBenefitsResponse;
 import com.sich.benefit.dto.LoyaltyResponse;
+import com.sich.common.dto.PageResponse;
 import com.sich.customer.CustomerService;
 import com.sich.user.UserService;
 
@@ -63,6 +69,35 @@ public class BenefitService {
                         wallet.completedAppointments(),
                         money(properties.getLoyaltyBonus()),
                         wallet.bonus()));
+    }
+
+    /**
+     * Extrato da carteira do cliente autenticado: agendamentos que geraram ou usaram
+     * cashback, do mais recente para o mais antigo (página a partir de 0, tamanho de 1
+     * a {@value AppointmentService#MAX_PAGE_SIZE}).
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<CashbackMovementResponse> history(int page, int size) {
+        Long customerId = customerService.findByUser(userService.getCurrentlyAuthenticatedUser()).getId();
+        LocalDateTime now = LocalDateTime.now(clock);
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, AppointmentService.MAX_PAGE_SIZE));
+        return PageResponse.of(appointmentRepository.findCashbackMovements(customerId, pageable),
+                appointment -> new CashbackMovementResponse(
+                        appointment.getId(),
+                        appointment.getStartAt(),
+                        appointment.getProvider().getId(),
+                        appointment.getProvider().getName(),
+                        appointment.getTotalPrice(),
+                        appointment.getCashbackUsed(),
+                        appointment.getCashbackEarned(),
+                        statusOf(appointment, now)));
+    }
+
+    private static CashbackStatus statusOf(AppointmentEntity appointment, LocalDateTime now) {
+        if (appointment.getStatus() == AppointmentStatus.CANCELED) {
+            return CashbackStatus.CANCELED;
+        }
+        return appointment.getEndAt().isAfter(now) ? CashbackStatus.PENDING : CashbackStatus.CREDITED;
     }
 
     /** Saldo de cashback disponível do cliente agora. */

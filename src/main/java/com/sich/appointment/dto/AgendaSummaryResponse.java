@@ -8,6 +8,7 @@ import java.time.LocalDate;
  * confirmados e cancelamentos, atendimentos de hoje e ocupação da semana.
  * {@code blockedMinutes} conta só a parte dos bloqueios dentro do expediente, e
  * {@code freeMinutes} é o expediente menos o tempo agendado e bloqueado (nunca negativo).
+ * {@code expectedRevenue} é o valor a receber dos confirmados, já descontado o cashback usado pelos clientes.
  */
 public record AgendaSummaryResponse(
         LocalDate from,

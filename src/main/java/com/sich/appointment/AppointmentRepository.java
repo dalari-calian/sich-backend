@@ -54,7 +54,7 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
 
     /** Um total por status dos agendamentos do prestador que começam em {@code [from, to)}. */
     @Query("""
-            select new com.sich.appointment.AppointmentStatusTotals(a.status, count(a), sum(a.totalMinutes), sum(a.totalPrice))
+            select new com.sich.appointment.AppointmentStatusTotals(a.status, count(a), sum(a.totalMinutes), sum(a.totalPrice - a.cashbackUsed))
             from AppointmentEntity a
             where a.provider.id = :providerId and a.startAt >= :from and a.startAt < :to
             group by a.status""")
@@ -149,6 +149,17 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
             @Param("to") LocalDateTime to,
             @Param("now") LocalDateTime now,
             Pageable pageable);
+
+    /** Agendamentos do cliente que geraram ou usaram cashback, do mais recente para o mais antigo (extrato da carteira). */
+    @EntityGraph(attributePaths = { "provider" })
+    @Query(value = """
+            select a from AppointmentEntity a
+            where a.customer.id = :customerId and (a.cashbackEarned > 0 or a.cashbackUsed > 0)
+            order by a.startAt desc, a.id desc""",
+            countQuery = """
+            select count(a) from AppointmentEntity a
+            where a.customer.id = :customerId and (a.cashbackEarned > 0 or a.cashbackUsed > 0)""")
+    Page<AppointmentEntity> findCashbackMovements(@Param("customerId") Long customerId, Pageable pageable);
 
     /** Cashback ganho nos agendamentos do cliente com o status que já terminaram ({@code null} se não houver). */
     @Query("""
