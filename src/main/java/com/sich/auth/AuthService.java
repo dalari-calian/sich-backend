@@ -5,11 +5,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sich.admin.AdminService;
 import com.sich.auth.dto.AuthResponse;
 import com.sich.auth.dto.LoginRequest;
 import com.sich.auth.dto.RegisterRequest;
-import com.sich.auth.dto.UserProfileResponse;
 import com.sich.auth.jwt.JwtProperties;
 import com.sich.auth.jwt.JwtService;
 import com.sich.common.enums.UserType;
@@ -28,7 +26,6 @@ public class AuthService {
     private final UserService userService;
     private final CustomerService customerService;
     private final ProviderService providerService;
-    private final AdminService adminService;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
@@ -48,15 +45,6 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         UserEntity user = userService.findByEmail(request.email());
         return issueToken(user);
-    }
-
-    public UserProfileResponse getMe() {
-        UserEntity user = userService.getCurrentlyAuthenticatedUser();
-        return switch (user.getUserType()) {
-            case CUSTOMER -> UserProfileResponse.of(user, customerService.findByUser(user));
-            case PROVIDER -> UserProfileResponse.of(user, providerService.findByUser(user));
-            case ADMIN -> UserProfileResponse.of(user, adminService.findByUser(user));
-        };
     }
 
     private void createProfile(UserEntity user, RegisterRequest request) {

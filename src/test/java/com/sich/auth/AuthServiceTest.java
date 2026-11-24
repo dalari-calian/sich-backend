@@ -15,19 +15,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
-import com.sich.admin.AdminEntity;
-import com.sich.admin.AdminService;
 import com.sich.auth.dto.AuthResponse;
 import com.sich.auth.dto.LoginRequest;
 import com.sich.auth.dto.RegisterRequest;
-import com.sich.auth.dto.UserProfileResponse;
 import com.sich.auth.jwt.JwtProperties;
 import com.sich.auth.jwt.JwtService;
 import com.sich.common.enums.UserType;
 import com.sich.common.exception.BusinessRuleException;
-import com.sich.customer.CustomerEntity;
 import com.sich.customer.CustomerService;
-import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
 import com.sich.user.UserEntity;
 import com.sich.user.UserService;
@@ -43,9 +38,6 @@ class AuthServiceTest {
 
     @Mock
     private ProviderService providerService;
-
-    @Mock
-    private AdminService adminService;
 
     @Mock
     private AuthenticationManager authenticationManager;
@@ -132,97 +124,5 @@ class AuthServiceTest {
                 eq(new UsernamePasswordAuthenticationToken("john@doe.com", "password123")));
         assertThat(response.token()).isEqualTo("token");
         assertThat(response.userType()).isEqualTo(UserType.CUSTOMER);
-    }
-
-    @Test
-    void getMe_shouldReturnCustomerProfile_whenUserIsCustomer() {
-        UserEntity user = new UserEntity();
-        user.setId(1L);
-        user.setEmail("john@doe.com");
-        user.setUserType(UserType.CUSTOMER);
-        user.setActive(true);
-
-        CustomerEntity customer = new CustomerEntity();
-        customer.setUser(user);
-        customer.setName("John Doe");
-        customer.setPhone("11999999999");
-        customer.setCnpjCpf("12345678900");
-        customer.setCity("São Paulo");
-        customer.setState("SP");
-        customer.setStreet("Rua A");
-        customer.setComplementAdress("Apto 1");
-        customer.setNeighborhood("Centro");
-        customer.setCep("01310100");
-        customer.setNumberAdress("123");
-
-        when(userService.getCurrentlyAuthenticatedUser()).thenReturn(user);
-        when(customerService.findByUser(user)).thenReturn(customer);
-
-        UserProfileResponse response = authService.getMe();
-
-        verify(providerService, never()).findByUser(any());
-        assertThat(response).isEqualTo(new UserProfileResponse(
-                "john@doe.com", UserType.CUSTOMER,
-                "John Doe", "11999999999", "12345678900",
-                "São Paulo", "SP", "Rua A", "Apto 1",
-                "Centro", "01310100", "123", null));
-    }
-
-    @Test
-    void getMe_shouldReturnProviderProfile_whenUserIsProvider() {
-        UserEntity user = new UserEntity();
-        user.setId(2L);
-        user.setEmail("jane@doe.com");
-        user.setUserType(UserType.PROVIDER);
-        user.setActive(true);
-
-        ProviderEntity provider = new ProviderEntity();
-        provider.setUser(user);
-        provider.setName("Jane Doe");
-        provider.setPhone("11999999999");
-        provider.setCnpjCpf("12345678900");
-        provider.setCity("São Paulo");
-        provider.setState("SP");
-        provider.setStreet("Rua A");
-        provider.setComplementAdress("Apto 1");
-        provider.setNeighborhood("Centro");
-        provider.setCep("01310100");
-        provider.setNumberAdress("123");
-
-        when(userService.getCurrentlyAuthenticatedUser()).thenReturn(user);
-        when(providerService.findByUser(user)).thenReturn(provider);
-
-        UserProfileResponse response = authService.getMe();
-
-        verify(customerService, never()).findByUser(any());
-        assertThat(response).isEqualTo(new UserProfileResponse(
-                "jane@doe.com", UserType.PROVIDER,
-                "Jane Doe", "11999999999", "12345678900",
-                "São Paulo", "SP", "Rua A", "Apto 1",
-                "Centro", "01310100", "123", null));
-    }
-
-    @Test
-    void getMe_shouldReturnAdminProfile_whenUserIsAdmin() {
-        UserEntity user = new UserEntity();
-        user.setId(3L);
-        user.setEmail("admin@sich.com");
-        user.setUserType(UserType.ADMIN);
-        user.setActive(true);
-
-        AdminEntity admin = new AdminEntity();
-        admin.setUser(user);
-        admin.setName("Admin Sich");
-
-        when(userService.getCurrentlyAuthenticatedUser()).thenReturn(user);
-        when(adminService.findByUser(user)).thenReturn(admin);
-
-        UserProfileResponse response = authService.getMe();
-
-        verify(customerService, never()).findByUser(any());
-        verify(providerService, never()).findByUser(any());
-        assertThat(response).isEqualTo(new UserProfileResponse(
-                "admin@sich.com", UserType.ADMIN, "Admin Sich",
-                null, null, null, null, null, null, null, null, null, null));
     }
 }

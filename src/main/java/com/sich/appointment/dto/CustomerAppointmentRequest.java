@@ -19,5 +19,9 @@ public record CustomerAppointmentRequest(
         @NotEmpty List<@NotNull Long> productIds,
 
         @Schema(description = "Observação para o prestador", example = "Prefiro esmalte nude")
-        @Size(max = 400) String notes) {
+        @Size(max = 400) String notes,
+
+        @Schema(description = "Usa o saldo de cashback como desconto: min(saldo, total × maxCashbackUsageRate de "
+                + "/customers/me/benefits). Ausente ou false = não usa", example = "true")
+        Boolean useCashback) {
 }

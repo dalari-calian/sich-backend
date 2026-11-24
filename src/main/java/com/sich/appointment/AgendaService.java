@@ -36,6 +36,7 @@ public class AgendaService {
     private final TimeBlockService timeBlockService;
     private final ProviderService providerService;
     private final UserService userService;
+    private final AppointmentMapper appointmentMapper;
 
     /** Um item por dia de {@code from} a {@code to} (inclusive), mesmo nos dias de folga. */
     @Transactional(readOnly = true)
@@ -47,10 +48,9 @@ public class AgendaService {
 
         Map<LocalDate, List<TimeRange>> workingByDate = workingHoursService.findIntervalsBetween(providerId, from, to).stream()
                 .collect(Collectors.groupingBy(interval -> interval.start().toLocalDate()));
-        Map<LocalDate, List<AppointmentResponse>> appointmentsByDate = appointmentRepository
-                .findByProviderIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(providerId, start, end).stream()
-                .collect(Collectors.groupingBy(appointment -> appointment.getStartAt().toLocalDate(),
-                        Collectors.mapping(AppointmentResponse::of, Collectors.toList())));
+        Map<LocalDate, List<AppointmentResponse>> appointmentsByDate = appointmentMapper.toResponses(appointmentRepository
+                .findByProviderIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(providerId, start, end)).stream()
+                .collect(Collectors.groupingBy(appointment -> appointment.startAt().toLocalDate()));
         List<TimeBlockEntity> blocks = timeBlockService.findOverlapping(providerId, start, end);
 
         return from.datesUntil(to.plusDays(1))

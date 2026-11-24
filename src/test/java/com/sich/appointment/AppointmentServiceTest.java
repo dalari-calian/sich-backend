@@ -27,6 +27,7 @@ import com.sich.appointment.dto.AppointmentItemResponse;
 import com.sich.appointment.dto.AppointmentResponse;
 import com.sich.appointment.dto.CustomerAppointmentRequest;
 import com.sich.appointment.dto.ProviderAppointmentRequest;
+import com.sich.benefit.BenefitService;
 import com.sich.common.dto.PageResponse;
 import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceNotFoundException;
@@ -36,6 +37,7 @@ import com.sich.customer.CustomerEntity;
 import com.sich.customer.CustomerService;
 import com.sich.product.ProductEntity;
 import com.sich.product.ProductService;
+import com.sich.profile.UserPhotoService;
 import com.sich.provider.ProviderEntity;
 import com.sich.provider.ProviderService;
 import com.sich.timeblock.TimeBlockService;
@@ -73,6 +75,12 @@ class AppointmentServiceTest {
     @Mock
     private UserService userService;
 
+    @Mock
+    private BenefitService benefitService;
+
+    @Mock
+    private UserPhotoService userPhotoService;
+
     private final Clock clock = Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE);
 
     private AppointmentService appointmentService;
@@ -84,7 +92,8 @@ class AppointmentServiceTest {
     @BeforeEach
     void setUp() {
         appointmentService = new AppointmentService(appointmentRepository, productService, workingHoursService,
-                providerService, customerService, timeBlockService, userService, clock);
+                providerService, customerService, timeBlockService, userService, benefitService,
+                new AppointmentMapper(userPhotoService), clock);
         user = new UserEntity();
         user.setId(1L);
         provider = new ProviderEntity();
@@ -139,7 +148,11 @@ class AppointmentServiceTest {
     }
 
     private CustomerAppointmentRequest customerRequest(LocalDateTime startAt) {
-        return new CustomerAppointmentRequest(10L, startAt, PRODUCT_IDS, "Prefiro esmalte nude");
+        return customerRequest(startAt, null);
+    }
+
+    private CustomerAppointmentRequest customerRequest(LocalDateTime startAt, Boolean useCashback) {
+        return new CustomerAppointmentRequest(10L, startAt, PRODUCT_IDS, "Prefiro esmalte nude", useCashback);
     }
 
     private AppointmentEntity appointment(AppointmentStatus status, LocalDateTime startAt) {
@@ -205,6 +218,8 @@ class AppointmentServiceTest {
         verify(customerService, never()).findById(any());
         verify(workingHoursService, never()).findIntervals(any(), any());
         verify(appointmentRepository, never()).existsCustomerOverlap(any(), any(), any(), any());
+        verify(benefitService, never()).earnedOn(any());
+        assertThat(result.cashbackEarned()).isEqualByComparingTo("0");
     }
 
     @Test
@@ -287,6 +302,72 @@ class AppointmentServiceTest {
         assertThat(result.customerId()).isEqualTo(40L);
         assertThat(result.notes()).isEqualTo("Prefiro esmalte nude");
         verify(providerService).lockById(10L);
+    }
+
+    private void customerCanBookOnTuesdayAt1030() {
+        authenticatedAsCustomer();
+        when(providerService.findById(10L)).thenReturn(provider);
+        productsFound();
+        workingHoursOnTuesday();
+        providerHasNoConflict(TUESDAY.atTime(10, 30), TUESDAY.atTime(12, 0));
+        when(appointmentRepository.existsCustomerOverlap(40L, AppointmentStatus.SCHEDULED,
+                TUESDAY.atTime(10, 30), TUESDAY.atTime(12, 0))).thenReturn(false);
+        savesAppointment();
+    }
+
+    @Test
+    void createByCustomer_shouldEarnCashbackWithoutUsingBalance_whenCashbackIsNotRequested() {
+        customerCanBookOnTuesdayAt1030();
+        when(benefitService.earnedOn(new BigDecimal("80.00"))).thenReturn(new BigDecimal("4.00"));
+
+        AppointmentResponse result = appointmentService.createByCustomer(customerRequest(TUESDAY.atTime(10, 30), false));
+
+        assertThat(result.cashbackUsed()).isEqualByComparingTo("0");
+        assertThat(result.amountToPay()).isEqualByComparingTo("80.00");
+        assertThat(result.cashbackEarned()).isEqualByComparingTo("4.00");
+        verify(customerService, never()).lockById(any());
+        verify(benefitService, never()).availableBalance(any());
+    }
+
+    @Test
+    void createByCustomer_shouldUseBalanceUpToTheLimit_whenCashbackIsRequested() {
+        customerCanBookOnTuesdayAt1030();
+        when(benefitService.availableBalance(40L)).thenReturn(new BigDecimal("50.00"));
+        when(benefitService.maxUsable(new BigDecimal("80.00"))).thenReturn(new BigDecimal("16.00"));
+        when(benefitService.earnedOn(new BigDecimal("64.00"))).thenReturn(new BigDecimal("3.20"));
+
+        AppointmentResponse result = appointmentService.createByCustomer(customerRequest(TUESDAY.atTime(10, 30), true));
+
+        assertThat(result.totalPrice()).isEqualByComparingTo("80.00");
+        assertThat(result.cashbackUsed()).isEqualByComparingTo("16.00");
+        assertThat(result.amountToPay()).isEqualByComparingTo("64.00");
+        assertThat(result.cashbackEarned()).isEqualByComparingTo("3.20");
+        verify(customerService).lockById(40L);
+    }
+
+    @Test
+    void createByCustomer_shouldUseWholeBalance_whenItIsBelowTheLimit() {
+        customerCanBookOnTuesdayAt1030();
+        when(benefitService.availableBalance(40L)).thenReturn(new BigDecimal("5.50"));
+        when(benefitService.maxUsable(new BigDecimal("80.00"))).thenReturn(new BigDecimal("16.00"));
+        when(benefitService.earnedOn(new BigDecimal("74.50"))).thenReturn(new BigDecimal("3.72"));
+
+        AppointmentResponse result = appointmentService.createByCustomer(customerRequest(TUESDAY.atTime(10, 30), true));
+
+        assertThat(result.cashbackUsed()).isEqualByComparingTo("5.50");
+        assertThat(result.amountToPay()).isEqualByComparingTo("74.50");
+    }
+
+    @Test
+    void createByCustomer_shouldReturnPhotosOfProviderAndCustomer() {
+        customerCanBookOnTuesdayAt1030();
+        when(userPhotoService.findByProviderIds(java.util.Set.of(10L))).thenReturn(java.util.Map.of(10L, "data:provider"));
+        when(userPhotoService.findByCustomerIds(java.util.Set.of(40L))).thenReturn(java.util.Map.of(40L, "data:customer"));
+
+        AppointmentResponse result = appointmentService.createByCustomer(customerRequest(TUESDAY.atTime(10, 30)));
+
+        assertThat(result.providerPhoto()).isEqualTo("data:provider");
+        assertThat(result.customerPhoto()).isEqualTo("data:customer");
     }
 
     @Test

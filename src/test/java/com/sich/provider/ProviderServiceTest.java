@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -20,11 +21,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.sich.auth.dto.RegisterRequest;
 import com.sich.common.enums.UserType;
 import com.sich.common.exception.ResourceNotFoundException;
+import com.sich.favorite.FavoriteProviderRepository;
 import com.sich.product.ProductRepository;
 import com.sich.product.ProviderCategoryName;
 import com.sich.product.ProviderMinPrice;
+import com.sich.profile.UserPhotoService;
 import com.sich.provider.dto.ProviderSummaryResponse;
 import com.sich.user.UserEntity;
+import com.sich.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class ProviderServiceTest {
@@ -34,6 +38,15 @@ class ProviderServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private UserPhotoService userPhotoService;
+
+    @Mock
+    private FavoriteProviderRepository favoriteProviderRepository;
+
+    @Mock
+    private UserService userService;
 
     @InjectMocks
     private ProviderService providerService;
@@ -83,6 +96,14 @@ class ProviderServiceTest {
                 .hasMessage("Prestador não encontrado");
     }
 
+    private UserEntity authenticatedAs(UserType userType) {
+        UserEntity user = new UserEntity();
+        user.setId(5L);
+        user.setUserType(userType);
+        when(userService.getCurrentlyAuthenticatedUser()).thenReturn(user);
+        return user;
+    }
+
     private static ProviderEntity provider(Long id, String name) {
         ProviderEntity provider = new ProviderEntity();
         provider.setId(id);
@@ -127,7 +148,8 @@ class ProviderServiceTest {
     }
 
     @Test
-    void search_shouldReturnEachProviderWithMinPriceAndCategoriesUsingTwoQueries() {
+    void search_shouldReturnEachProviderWithMinPriceCategoriesPhotoAndFavoriteInBatch() {
+        authenticatedAs(UserType.CUSTOMER);
         when(providerRepository.search("%ana%", true, List.of(0L)))
                 .thenReturn(List.of(provider(10L, "Ana Beatriz"), provider(11L, "Ana Clara")));
         when(productRepository.findMinActivePriceByProviderIds(List.of(10L, 11L)))
@@ -136,18 +158,21 @@ class ProviderServiceTest {
                 new ProviderCategoryName(10L, "Manicure"),
                 new ProviderCategoryName(10L, "Pedicure"),
                 new ProviderCategoryName(11L, "Manicure")));
+        when(userPhotoService.findByProviderIds(List.of(10L, 11L))).thenReturn(Map.of(10L, "data:image/png;base64,AQ=="));
+        when(favoriteProviderRepository.findFavoriteProviderIds(5L, List.of(10L, 11L))).thenReturn(List.of(11L));
 
         List<ProviderSummaryResponse> result = providerService.search("  ANA ", null);
 
         assertThat(result).containsExactly(
                 new ProviderSummaryResponse(10L, "Ana Beatriz", "São Paulo", "SP", "Jardins",
-                        new BigDecimal("95.00"), List.of("Manicure", "Pedicure")),
+                        new BigDecimal("95.00"), List.of("Manicure", "Pedicure"), "data:image/png;base64,AQ==", false),
                 new ProviderSummaryResponse(11L, "Ana Clara", "São Paulo", "SP", "Jardins",
-                        null, List.of("Manicure")));
+                        null, List.of("Manicure"), null, true));
     }
 
     @Test
     void search_shouldFilterByCategories_whenInformed() {
+        authenticatedAs(UserType.PROVIDER);
         when(providerRepository.search("%%", false, List.of(3L, 4L))).thenReturn(List.of(provider(10L, "Ana Beatriz")));
         when(productRepository.findMinActivePriceByProviderIds(List.of(10L))).thenReturn(List.of());
         when(productRepository.findActiveCategoryNamesByProviderIds(List.of(10L))).thenReturn(List.of());
@@ -167,6 +192,7 @@ class ProviderServiceTest {
 
     @Test
     void findSummariesByIds_shouldKeepOrderOfIdsAndSkipMissingOnes() {
+        authenticatedAs(UserType.PROVIDER);
         when(providerRepository.findAllById(List.of(11L, 99L, 10L)))
                 .thenReturn(List.of(provider(10L, "Ana Beatriz"), provider(11L, "Carla Souza")));
         when(productRepository.findMinActivePriceByProviderIds(List.of(11L, 10L))).thenReturn(List.of());
@@ -178,7 +204,8 @@ class ProviderServiceTest {
     }
 
     @Test
-    void findSummaryById_shouldReturnCardOfProvider() {
+    void findSummaryById_shouldReturnCardOfProvider_notFavoriteForNonCustomer() {
+        authenticatedAs(UserType.ADMIN);
         when(providerRepository.findById(10L)).thenReturn(Optional.of(provider(10L, "Ana Beatriz")));
         when(productRepository.findMinActivePriceByProviderIds(List.of(10L)))
                 .thenReturn(List.of(new ProviderMinPrice(10L, new BigDecimal("50.00"))));
@@ -189,5 +216,8 @@ class ProviderServiceTest {
 
         assertThat(result.minPrice()).isEqualByComparingTo("50.00");
         assertThat(result.categories()).containsExactly("Manicure");
+        assertThat(result.favorite()).isFalse();
+        assertThat(result.photo()).isNull();
+        verify(favoriteProviderRepository, never()).findFavoriteProviderIds(any(), any());
     }
 }

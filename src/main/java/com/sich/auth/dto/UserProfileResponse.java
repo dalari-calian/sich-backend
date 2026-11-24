@@ -3,11 +3,14 @@ package com.sich.auth.dto;
 import java.time.Instant;
 
 import com.sich.admin.AdminEntity;
+import com.sich.common.base.PersonalData;
 import com.sich.common.enums.UserType;
-import com.sich.customer.CustomerEntity;
-import com.sich.provider.ProviderEntity;
 import com.sich.user.UserEntity;
 
+/**
+ * Perfil do usuário autenticado. {@code photo} é a foto de perfil em data URL (ou
+ * nulo, sem foto) e {@code createdAt} alimenta o "Cliente desde".
+ */
 public record UserProfileResponse(
         String email,
         UserType userType,
@@ -21,48 +24,35 @@ public record UserProfileResponse(
         String neighborhood,
         String cep,
         String numberAdress,
+        String photo,
         Instant createdAt) {
 
-    public static UserProfileResponse of(UserEntity user, CustomerEntity customer) {
+    /** Perfil de cliente ou prestador. */
+    public static UserProfileResponse of(UserEntity user, PersonalData person, String photo) {
         return new UserProfileResponse(
                 user.getEmail(),
                 user.getUserType(),
-                customer.getName(),
-                customer.getPhone(),
-                customer.getCnpjCpf(),
-                customer.getCity(),
-                customer.getState(),
-                customer.getStreet(),
-                customer.getComplementAdress(),
-                customer.getNeighborhood(),
-                customer.getCep(),
-                customer.getNumberAdress(),
+                person.getName(),
+                person.getPhone(),
+                person.getCnpjCpf(),
+                person.getCity(),
+                person.getState(),
+                person.getStreet(),
+                person.getComplementAdress(),
+                person.getNeighborhood(),
+                person.getCep(),
+                person.getNumberAdress(),
+                photo,
                 user.getCreatedAt());
     }
 
-    public static UserProfileResponse of(UserEntity user, ProviderEntity provider) {
-        return new UserProfileResponse(
-                user.getEmail(),
-                user.getUserType(),
-                provider.getName(),
-                provider.getPhone(),
-                provider.getCnpjCpf(),
-                provider.getCity(),
-                provider.getState(),
-                provider.getStreet(),
-                provider.getComplementAdress(),
-                provider.getNeighborhood(),
-                provider.getCep(),
-                provider.getNumberAdress(),
-                user.getCreatedAt());
-    }
-
-    public static UserProfileResponse of(UserEntity user, AdminEntity admin) {
+    public static UserProfileResponse of(UserEntity user, AdminEntity admin, String photo) {
         return new UserProfileResponse(
                 user.getEmail(),
                 user.getUserType(),
                 admin.getName(),
                 null, null, null, null, null, null, null, null, null,
+                photo,
                 user.getCreatedAt());
     }
 }

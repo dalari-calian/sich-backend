@@ -1,5 +1,6 @@
 package com.sich.appointment;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,7 +54,7 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
 
     /** Um total por status dos agendamentos do prestador que começam em {@code [from, to)}. */
     @Query("""
-            select new com.sich.appointment.AppointmentStatusTotals(a.status, count(a), sum(a.totalMinutes), sum(a.totalPrice))
+            select new com.sich.appointment.AppointmentStatusTotals(a.status, count(a), sum(a.totalMinutes), sum(a.totalPrice - a.cashbackUsed))
             from AppointmentEntity a
             where a.provider.id = :providerId and a.startAt >= :from and a.startAt < :to
             group by a.status""")
@@ -84,6 +85,103 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
     @EntityGraph(attributePaths = { "provider", "customer" })
     Page<AppointmentEntity> findByCustomerIdAndStartAtLessThanOrderByStartAtDesc(Long customerId, LocalDateTime before,
             Pageable pageable);
+
+    /** Totais dos agendamentos do prestador com o status que começam em {@code [from, to)} e já terminaram. */
+    @Query("""
+            select new com.sich.appointment.RevenueTotals(count(a), sum(a.totalPrice), sum(a.cashbackUsed))
+            from AppointmentEntity a
+            where a.provider.id = :providerId and a.status = :status
+              and a.startAt >= :from and a.startAt < :to and a.endAt <= :now""")
+    RevenueTotals sumFinishedRevenue(@Param("providerId") Long providerId,
+            @Param("status") AppointmentStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("now") LocalDateTime now);
+
+    /** Totais dos agendamentos do prestador com o status que começam em {@code [from, to)} e ainda não terminaram. */
+    @Query("""
+            select new com.sich.appointment.RevenueTotals(count(a), sum(a.totalPrice), sum(a.cashbackUsed))
+            from AppointmentEntity a
+            where a.provider.id = :providerId and a.status = :status
+              and a.startAt >= :from and a.startAt < :to and a.endAt > :now""")
+    RevenueTotals sumUpcomingRevenue(@Param("providerId") Long providerId,
+            @Param("status") AppointmentStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("now") LocalDateTime now);
+
+    /** Totais dos agendamentos do prestador com o status que começam em {@code [from, to)}. */
+    @Query("""
+            select new com.sich.appointment.RevenueTotals(count(a), sum(a.totalPrice), sum(a.cashbackUsed))
+            from AppointmentEntity a
+            where a.provider.id = :providerId and a.status = :status
+              and a.startAt >= :from and a.startAt < :to""")
+    RevenueTotals sumRevenue(@Param("providerId") Long providerId,
+            @Param("status") AppointmentStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    /** Faturamento por dia dos agendamentos do prestador com o status que começam em {@code [from, to)} e já terminaram. */
+    @Query("""
+            select new com.sich.appointment.DailyRevenue(cast(a.startAt as LocalDate), count(a), sum(a.totalPrice), sum(a.cashbackUsed))
+            from AppointmentEntity a
+            where a.provider.id = :providerId and a.status = :status
+              and a.startAt >= :from and a.startAt < :to and a.endAt <= :now
+            group by cast(a.startAt as LocalDate)
+            order by cast(a.startAt as LocalDate)""")
+    List<DailyRevenue> sumFinishedRevenueByDay(@Param("providerId") Long providerId,
+            @Param("status") AppointmentStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("now") LocalDateTime now);
+
+    /** Serviços que mais faturaram nos agendamentos do prestador com o status que começam em {@code [from, to)} e já terminaram. */
+    @Query("""
+            select new com.sich.appointment.ProductRevenue(i.productName, count(i), sum(i.price))
+            from AppointmentItemEntity i join i.appointment a
+            where a.provider.id = :providerId and a.status = :status
+              and a.startAt >= :from and a.startAt < :to and a.endAt <= :now
+            group by i.productName
+            order by sum(i.price) desc, i.productName""")
+    List<ProductRevenue> sumFinishedRevenueByProduct(@Param("providerId") Long providerId,
+            @Param("status") AppointmentStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("now") LocalDateTime now,
+            Pageable pageable);
+
+    /** Agendamentos do cliente que geraram ou usaram cashback, do mais recente para o mais antigo (extrato da carteira). */
+    @EntityGraph(attributePaths = { "provider" })
+    @Query(value = """
+            select a from AppointmentEntity a
+            where a.customer.id = :customerId and (a.cashbackEarned > 0 or a.cashbackUsed > 0)
+            order by a.startAt desc, a.id desc""",
+            countQuery = """
+            select count(a) from AppointmentEntity a
+            where a.customer.id = :customerId and (a.cashbackEarned > 0 or a.cashbackUsed > 0)""")
+    Page<AppointmentEntity> findCashbackMovements(@Param("customerId") Long customerId, Pageable pageable);
+
+    /** Cashback ganho nos agendamentos do cliente com o status que já terminaram ({@code null} se não houver). */
+    @Query("""
+            select sum(a.cashbackEarned) from AppointmentEntity a
+            where a.customer.id = :customerId and a.status = :status and a.endAt <= :now""")
+    BigDecimal sumCashbackEarnedFinished(@Param("customerId") Long customerId,
+            @Param("status") AppointmentStatus status,
+            @Param("now") LocalDateTime now);
+
+    /** Cashback a ganhar nos agendamentos do cliente com o status que ainda não terminaram ({@code null} se não houver). */
+    @Query("""
+            select sum(a.cashbackEarned) from AppointmentEntity a
+            where a.customer.id = :customerId and a.status = :status and a.endAt > :now""")
+    BigDecimal sumCashbackEarnedUpcoming(@Param("customerId") Long customerId,
+            @Param("status") AppointmentStatus status,
+            @Param("now") LocalDateTime now);
+
+    /** Cashback usado como desconto nos agendamentos do cliente com o status ({@code null} se não houver). */
+    @Query("""
+            select sum(a.cashbackUsed) from AppointmentEntity a
+            where a.customer.id = :customerId and a.status = :status""")
+    BigDecimal sumCashbackUsed(@Param("customerId") Long customerId, @Param("status") AppointmentStatus status);
 
     long countByCustomerIdAndStatusAndEndAtLessThanEqual(Long customerId, AppointmentStatus status, LocalDateTime now);
 

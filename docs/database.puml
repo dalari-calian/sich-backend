@@ -82,6 +82,30 @@ table(providers) {
   updatedat : timestamptz NOT NULL
 }
 
+table(userphotos) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fkuq(userid) : bigint NOT NULL
+  image : text NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  foto de perfil em data URL base64 (png/jpeg/webp, até 1 MB)
+  ON DELETE CASCADE (apaga com o usuário)
+}
+
+table(favoriteproviders) {
+  pk(id) : bigint identity NOT NULL
+  --
+  fk(customerid) : bigint NOT NULL
+  fk(providerid) : bigint NOT NULL
+  createdat : timestamptz NOT NULL
+  updatedat : timestamptz NOT NULL
+  ..
+  UNIQUE (customerid, providerid)
+  ON DELETE CASCADE (cliente e prestador)
+}
+
 table(categories) {
   pk(id) : bigint identity NOT NULL
   --
@@ -169,6 +193,8 @@ table(appointments) {
   origin : varchar(20) NOT NULL
   canceledat : timestamptz NULL
   canceledby : varchar(20) NULL
+  cashbackused : numeric(12,2) NOT NULL DEFAULT 0
+  cashbackearned : numeric(12,2) NOT NULL DEFAULT 0
   createdat : timestamptz NOT NULL
   updatedat : timestamptz NOT NULL
   ..
@@ -176,6 +202,9 @@ table(appointments) {
   status: SCHEDULED | CANCELED; origin/canceledby: PROVIDER | CUSTOMER
   customername só quando não há customerid (cliente sem cadastro)
   EXCLUDE sem sobreposição por prestador (docs/sql/appointments-constraints.sql)
+  cashbackused: desconto pago com cashback (valor a pagar = totalprice − cashbackused)
+  cashbackearned: cashback do cliente; entra no saldo quando o atendimento termina
+  CHECK cashback (docs/sql/profile-favorites-benefits.sql)
 }
 
 table(appointmentitems) {
@@ -200,6 +229,9 @@ table(appointmentitems) {
 users ||--o| customers : "customers.userid → users.id"
 users ||--o| providers : "providers.userid → users.id"
 users ||--o| admins : "admins.userid → users.id"
+users ||--o| userphotos : "userphotos.userid → users.id"
+customers ||--o{ favoriteproviders : "favoriteproviders.customerid → customers.id"
+providers ||--o{ favoriteproviders : "favoriteproviders.providerid → providers.id"
 providers ||--o{ products : "products.providerid → providers.id"
 categories ||--o{ products : "products.categoryid → categories.id"
 products ||--o{ productimages : "productimages.productid → products.id"

@@ -62,7 +62,7 @@ ou componentes de interface, que não é o caso, não precisa implementar.
 - **Disponibilidade** (`/providers/{id}/availability` e `/providers/me/availability`): calculada pela função pura `SlotCalculator` a partir do expediente, dos agendamentos `SCHEDULED` e de `TimeGrid.ceil(agora)`.
 - **Cancelamento**: `PATCH .../{id}/cancel` muda para `CANCELED` e grava `canceledat`/`canceledby`; não é permitido depois do início. Cancelado libera o horário.
 - A constraint de exclusão e as CHECKs ficam em `docs/sql/appointments-constraints.sql` (o Hibernate não as cria).
-- **Telas de resumo usam consultas agregadas**, nunca a lista completa: `GET /providers/me/appointments/summary?from&to` (confirmados, cancelados, minutos de expediente/agendados/livres e receita prevista; usado nos cards da agenda, "atendimentos de hoje" e "ocupação da semana") e `GET /customers/me/appointments/summary` (realizados, próximos, cancelados).
+- **Telas de resumo usam consultas agregadas**, nunca a lista completa: `GET /providers/me/appointments/summary?from&to` (confirmados, cancelados, minutos de expediente/agendados/livres e receita prevista já descontado o cashback usado; usado nos cards da agenda, "atendimentos de hoje" e "ocupação da semana") e `GET /customers/me/appointments/summary` (realizados, próximos, cancelados).
 - **Histórico** (`.../appointments/history?page&size`) é paginado (tamanho de 1 a 50), do mais recente para o mais antigo; os itens vêm em lote pelo `@BatchSize` da coleção, nunca com `fetch join` + paginação.
 - `AppointmentResponse` traz telefone e endereço do prestador e do cliente, para o card da agenda não precisar de outra consulta.
 - **Bloqueios** (`providertimeblocks`, `/providers/me/time-blocks`, só PROVIDER): período `[startAt, endAt)` em que o prestador não atende, na grade de 15 min, pode durar vários dias (até `MAX_LIST_DAYS`), começa no futuro e até `MAX_DAYS_AHEAD`. Não pode sobrepor outro bloqueio (422) nem agendamento `SCHEDULED` (409, com a linha do prestador travada). Ninguém agenda sobre um bloqueio, nem o prestador (409 em `AppointmentService.book`), e a disponibilidade o trata como ocupado. A CHECK e o índice ficam em `docs/sql/timeblocks-constraints.sql`.
@@ -70,6 +70,34 @@ ou componentes de interface, que não é o caso, não precisa implementar.
 - O resumo do prestador traz também `blockedCount` e `blockedMinutes` (só a parte do bloqueio dentro do expediente); `freeMinutes` = expediente − agendado − bloqueado.
 - **Profissionais em alta** (`GET /providers/trending?limit`, `TrendingProviderService`): prestadores com produto ativo que mais receberam agendamentos não cancelados criados nos últimos 30 dias, com uma consulta agregada e os cards em lote (`ProviderService.findSummariesByIds`).
 - **Busca de prestadores** (`GET /providers?q&categoryIds`): só prestadores com produto ativo, pelo nome do prestador ou de um produto; o menor preço e as categorias de todos vêm em duas consultas (`ProductRepository.findMinActivePriceByProviderIds` e `findActiveCategoryNamesByProviderIds`), nunca uma por prestador.
+
+## Regras de negócio — Perfil (`/users/me`, `userphotos`)
+
+- A leitura continua em `GET /auth/me` (`ProfileService.getMe`), que traz também `photo` (data URL ou nulo) e `createdAt` ("Cliente desde").
+- Edição sempre do usuário do token: `PATCH /users/me` (nome, telefone, CPF/CNPJ), `PATCH /users/me/address`, `PUT /users/me/password`, `PUT`/`DELETE /users/me/photo`.
+- Nos `PATCH`, campo `null`/ausente mantém o valor atual e string vazia apaga; nome e telefone não podem ficar vazios (422). CEP é salvo só com números e, quando informado, precisa ter 8 dígitos (422). O admin só altera nome, senha e foto (endereço retorna 422).
+- Cliente e prestador implementam `common/base/PersonalData`, para o perfil ser lido/editado do mesmo jeito.
+- Troca de senha confere a atual (422 se errada) e exige uma nova diferente; o token atual continua válido. Email não é editável (é o subject do JWT).
+- **Foto de perfil**: tabela própria `userphotos` (uma por usuário), para a imagem não ser carregada junto com o usuário em toda requisição. Data URL png/jpeg/webp até **1 MB** (validação em `common/util/ImageDataUrl`, a mesma das fotos de produto). Aparece em `/auth/me`, nos cards de prestador (`ProviderSummaryResponse.photo`) e nos agendamentos (`providerPhoto`/`customerPhoto`), sempre buscada em lote (`UserPhotoService.findByProviderIds`/`findByCustomerIds`, montagem em `AppointmentMapper`), nunca uma por item.
+
+## Regras de negócio — Favoritos (`favoriteproviders`)
+
+- Só o CUSTOMER favorita prestadores (`/customers/me/favorites`): `GET` lista os cards (do mais recente para o mais antigo), `PUT /{providerId}` favorita e `DELETE /{providerId}` remove. Ambos idempotentes; prestador inexistente retorna 404.
+- Todo `ProviderSummaryResponse` (busca, em alta, detalhe, favoritos) traz `favorite`, calculado em uma consulta para a lista toda (`FavoriteProviderRepository.findFavoriteProviderIds`); para quem não é cliente é sempre `false`.
+
+## Regras de negócio — Cashback e fidelidade (`/customers/me/benefits`)
+
+- Regras configuráveis em `app.benefits.*` (`BenefitProperties`): cashback de **5%** do valor pago, uso de até **20%** do valor do agendamento, cartão fidelidade de **5** atendimentos com bônus de **R$ 10,00** por cartão completo.
+- Não há tabela de lançamentos: saldo e extrato são derivados dos agendamentos com consultas agregadas (`BenefitService`). Cada agendamento de cliente cadastrado guarda `cashbackused` (desconto) e `cashbackearned` (calculado no agendamento sobre o valor a pagar, arredondado para baixo).
+- Saldo = cashback dos atendimentos realizados (não cancelados e já terminados) + bônus de fidelidade (`floor(realizados / meta) × bônus`) − cashback usado em agendamentos não cancelados. Cancelar devolve o desconto e o cashback do agendamento cancelado nunca entra. O saldo nunca fica negativo.
+- O cliente usa o saldo com `useCashback = true` em `POST /customers/me/appointments`: desconto = `min(saldo, total × 20%)`, com a linha do cliente travada (`CustomerService.lockById`) para dois agendamentos não gastarem o mesmo saldo. O prestador não usa saldo do cliente, mas o cliente cadastrado ganha cashback também nos agendamentos feitos pelo prestador.
+- **Extrato** (`GET /customers/me/benefits/history?page&size`, paginado de 1 a 50): agendamentos com cashback ganho ou usado, do mais recente para o mais antigo, com a situação `CREDITED` (já no saldo), `PENDING` (entra quando terminar) ou `CANCELED`. Os bônus de fidelidade não entram no extrato (ficam em `loyalty.bonusEarnedTotal`).
+- `AppointmentResponse` traz `cashbackUsed`, `amountToPay` (total − desconto) e `cashbackEarned`. A CHECK e o índice ficam em `docs/sql/profile-favorites-benefits.sql`.
+
+## Regras de negócio — Financeiro do prestador (`/providers/me/financial`)
+
+- `GET /providers/me/financial?from&to` (`FinancialService`, só PROVIDER, período de até 366 dias) com seis consultas agregadas, qualquer que seja o período: realizados (bruto, desconto de cashback, líquido, ticket médio), previstos (líquido), cancelados, faturamento por dia (um item por dia, inclusive zerados) e os 10 serviços que mais faturaram.
+- Realizado = não cancelado e já terminado (mesmo critério do resumo do cliente). A lista dos atendimentos é o histórico `/providers/me/appointments/history`.
 
 ## Diagrama do banco
 

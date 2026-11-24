@@ -45,7 +45,7 @@ class TrendingProviderServiceTest {
     }
 
     private static ProviderSummaryResponse summary(Long id, String name) {
-        return new ProviderSummaryResponse(id, name, "São Paulo", "SP", "Jardins", new BigDecimal("95.00"), List.of("Manicure"));
+        return new ProviderSummaryResponse(id, name, "São Paulo", "SP", "Jardins", new BigDecimal("95.00"), List.of("Manicure"), null, false);
     }
 
     @Test

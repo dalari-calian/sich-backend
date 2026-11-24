@@ -7,8 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sich.auth.dto.RegisterRequest;
+import com.sich.common.exception.BusinessRuleException;
 import com.sich.common.exception.ResourceAlreadyExistsException;
 import com.sich.common.exception.ResourceNotFoundException;
+import com.sich.profile.dto.PasswordChangeRequest;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +32,19 @@ public class UserService {
         user.setUserType(request.userType());
         user.setActive(true);
         return userRepository.save(user);
+    }
+
+    /** Troca a senha depois de conferir a atual; a nova precisa ser diferente da atual. */
+    @Transactional
+    public void changePassword(UserEntity user, PasswordChangeRequest request) {
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BusinessRuleException("A senha atual está incorreta");
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new BusinessRuleException("A nova senha deve ser diferente da atual");
+        }
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
     }
 
     @Transactional(readOnly = true)
