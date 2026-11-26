@@ -36,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Configura JDK 25 (Temurin)
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
@@ -62,7 +62,7 @@ jobs:
 
       - name: Publica relatórios de teste (se existirem)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: surefire-reports
           path: target/surefire-reports/
@@ -75,13 +75,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Configura Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Valida o build da imagem
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
