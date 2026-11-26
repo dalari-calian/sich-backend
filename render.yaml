@@ -1,0 +1,36 @@
+# Render Blueprint: API (Docker) + managed Postgres.
+# Deploys are triggered by GitHub Actions (deploy hook) only after CI passes on main.
+services:
+  - type: web
+    name: sich-backend
+    runtime: docker
+    plan: free
+    region: virginia
+    autoDeploy: false
+    healthCheckPath: /v3/api-docs
+    envVars:
+      - key: PORT
+        value: 4100
+      - key: DB_HOST
+        fromDatabase: { name: sich-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: sich-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: sich-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: sich-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: sich-db, property: password }
+      # Random 256-bit base64 value, satisfies the 32-byte minimum.
+      - key: APP_SECURITY_JWT_SECRET
+        generateValue: true
+      - key: LOGGING_LEVEL_ORG_HIBERNATE_SQL
+        value: info
+
+databases:
+  - name: sich-db
+    databaseName: sich
+    user: sich_user
+    plan: free
+    region: virginia
+    postgresMajorVersion: "17"
